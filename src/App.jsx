@@ -125,6 +125,7 @@ function exportPDF(report, client, assignedUser) {
   const items = report.budgetItems || [];
   const findings = report.findings || [];
 
+  const advance = (b.total || 0) * ((b.advance_pct || 50) / 100);
   const sc = s => s === "alta" ? "#ef4444" : s === "media" ? "#f59e0b" : "#22c55e";
 
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Presupuesto ${report.folio}</title>
@@ -1374,3 +1375,4 @@ export default function App() {
     </div>
   );
 }
+
