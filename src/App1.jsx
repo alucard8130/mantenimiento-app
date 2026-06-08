@@ -227,13 +227,7 @@ async function sbSignOut() {
 
 // ── PROFILES ──────────────────────────────────────────────────────────────────
 async function fetchProfiles() {
-  // Usar cabecera especial para bypassear RLS en lectura
-  // (el superusuario no tiene sesión de Supabase Auth)
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .order("created_at");
-  if (error) console.error("fetchProfiles error:", error.message);
+  const { data } = await supabase.from("profiles").select("*").order("created_at");
   return data || [];
 }
 
@@ -1182,7 +1176,7 @@ export default function App() {
     setLoading(true);
     try {
       const [p, c, r] = await Promise.all([fetchProfiles(), fetchClients(), fetchReports()]);
-      console.log("DEBUG perfiles cargados:", p);
+      // Filter out any profile whose email matches superuser so there is no duplicate
       setProfiles(p.filter(x => !isSuperEmail(x.email)));
       setClients(c);
       setReports(r);
@@ -1381,3 +1375,4 @@ export default function App() {
     </div>
   );
 }
+
