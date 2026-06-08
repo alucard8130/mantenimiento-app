@@ -1,4 +1,6 @@
+
 import { useState, useRef, useEffect, useCallback } from "react";
+
 
 // ── FONTS ──────────────────────────────────────────────────────────────────────
 const FONT_LINK = document.createElement("link");
@@ -17,12 +19,13 @@ const fmtDate = d => d ? new Date(d + "T12:00:00").toLocaleDateString("es-MX", {
 const LS_USERS = "mantapp_users";
 const LS_SESSION = "mantapp_session";
 
+
 // Superusuario fijo — siempre existe, no se puede eliminar ni modificar
 const SUPERUSER = {
   id: "superadmin",
   name: "Super Admin",
-  email: "admin@mantapp.mx",
-  password: "Alucard81@",
+  email: process.env.REACT_APP_SUPER_EMAIL || "",
+  password: process.env.REACT_APP_SUPER_PASSWORD || "",
   role: "superadmin",
   avatar: "SA",
   createdAt: "2026-01-01",
