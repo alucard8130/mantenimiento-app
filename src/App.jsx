@@ -393,7 +393,7 @@ function AuthScreen({ onLogin }) {
     if (form.password.length < 6) return setError("Contraseña mínimo 6 caracteres");
     if (form.password !== form.confirm) return setError("Las contraseñas no coinciden");
     setLoading(true); setError("");
-    const { data, error } = await sbSignUp(form.name.trim(), form.email.trim().toLowerCase(), form.password, form.role);
+    const { error } = await sbSignUp(form.name.trim(), form.email.trim().toLowerCase(), form.password, form.role);
     if (error) { setError(error.message); setLoading(false); return; }
     // Mostrar pantalla de confirmación pendiente
     setRegistered(form.email.trim().toLowerCase());
@@ -749,7 +749,7 @@ function NewReportModal({ onClose, onSave, clients, profiles, currentUser }) {
       assigned_to_name: assignedProfile?.name || "",
       status: "borrador",
     };
-    const { data, error } = await createReport(payload, findings, currentUser);
+    const { error } = await createReport(payload, findings, currentUser);
     if (error) { alert("Error al crear reporte: " + error.message); setSaving(false); return; }
     onSave();
     setSaving(false);
