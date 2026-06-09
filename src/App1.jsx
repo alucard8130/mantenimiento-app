@@ -231,7 +231,7 @@ function exportPDF(report, client, assignedUser, lang = "es") {
   .sig-label{font-size:11px;color:#6b7280;text-align:center}
 </style></head><body><div class="page">
   <div class="header">
-    <div class="logo"><div class="logo-icon">🔧</div><div class="logo-text"><h1>MantPro</h1><p>Professional Maintenance Management</p></div></div>
+    <div class="logo"><div class="logo-icon">🔧</div><div class="logo-text"><h1>MantenimientoApp</h1><p>Gestión Profesional de Mantenimiento</p></div></div>
     <div class="folio"><div class="num">${report.folio}</div><div class="date">Fecha: ${fmtDate(report.date)}</div><div class="date">Generado: ${fmtDate(today())}</div></div>
   </div>
   <div class="section"><div class="sec-title">Información del Proyecto</div>
@@ -263,7 +263,7 @@ function exportPDF(report, client, assignedUser, lang = "es") {
     </div>
   </div>` : ""}
   <div class="footer">
-    <div class="footer-left"><div style="font-weight:700;color:#374151;margin-bottom:4px">MantPro · ${today()}</div><div>Vigencia: 30 días naturales.</div></div>
+    <div class="footer-left"><div style="font-weight:700;color:#374151;margin-bottom:4px">MantenimientoApp · ${today()}</div><div>Vigencia: 30 días naturales.</div></div>
     <div><div class="sig-line"></div><div class="sig-label">Firma de Autorización</div><div class="sig-label">${client?.contact || "Representante Legal"}</div></div>
   </div>
 </div></body></html>`;
@@ -571,9 +571,9 @@ function AuthScreen({ onLogin }) {
       <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 20% 50%, #1d4ed820 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, #7c3aed15 0%, transparent 50%)" }} />
       <div style={{ position: "relative", width: "100%", maxWidth: 440, padding: 24 }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <img src="/icon-only.svg" alt="MantPro" style={{ width: 72, height: 72, margin: "0 auto 16px", display: "block", borderRadius: 18 }} onError={e => { e.target.style.display="none"; }} />
-          <h1 style={{ color: "#f9fafb", fontSize: 28, fontWeight: 800, margin: 0, letterSpacing: -0.5, fontFamily: "DM Sans, sans-serif" }}>MantPro</h1>
-          <p style={{ color: "#4b5563", fontSize: 13, marginTop: 6 }}>{form.lang === "en" ? "Professional maintenance management" : "Gestión profesional de mantenimiento"}</p>
+          <div style={{ width: 66, height: 66, background: "linear-gradient(135deg, #2563eb, #1d4ed8)", borderRadius: 20, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, margin: "0 auto 16px", boxShadow: "0 0 48px #2563eb40" }}>🔧</div>
+          <h1 style={{ color: "#f9fafb", fontSize: 26, fontWeight: 800, margin: 0 }}>MantPRO</h1>
+          <p style={{ color: "#4b5563", fontSize: 13, marginTop: 6 }}>Professional maintenance management</p>
         </div>
         <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: 20, padding: 32, boxShadow: "0 28px 70px #000a" }}>
           <div style={{ display: "flex", background: "#1f2937", borderRadius: 12, padding: 4, marginBottom: 28 }}>
@@ -583,19 +583,19 @@ function AuthScreen({ onLogin }) {
           </div>
           {mode === "login" ? (
             <>
-              <div style={{ marginBottom: 14 }}><label style={S.label}>Correo</label><input value={form.email} onChange={e => f("email",e.target.value)} placeholder="tu@correo.com" type="email" style={iStyle} onKeyDown={e => e.key==="Enter"&&handleLogin()} /></div>
-              <div style={{ marginBottom: 22 }}><label style={S.label}>Contraseña</label><input value={form.password} onChange={e => f("password",e.target.value)} placeholder="••••••••" type="password" style={iStyle} onKeyDown={e => e.key==="Enter"&&handleLogin()} /></div>
+              <div style={{ marginBottom: 14 }}><label style={S.label}>Email</label><input value={form.email} onChange={e => f("email",e.target.value)} placeholder="tu@correo.com" type="email" style={iStyle} onKeyDown={e => e.key==="Enter"&&handleLogin()} /></div>
+              <div style={{ marginBottom: 22 }}><label style={S.label}>Password</label><input value={form.password} onChange={e => f("password",e.target.value)} placeholder="••••••••" type="password" style={iStyle} onKeyDown={e => e.key==="Enter"&&handleLogin()} /></div>
               {error && <div style={{ background:"#450a0a",border:"1px solid #f8717140",borderRadius:8,padding:"10px 14px",color:"#f87171",fontSize:13,marginBottom:16 }}>{error}</div>}
-              <button onClick={handleLogin} disabled={loading} style={{ width:"100%",background:"linear-gradient(135deg,#2563eb,#1d4ed8)",border:"none",borderRadius:10,padding:13,color:"#fff",fontWeight:800,fontSize:15,cursor:loading?"not-allowed":"pointer",opacity:loading?.7:1,fontFamily:"DM Sans,sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:10 }}>{loading?<><Spinner/>Verificando…</>:"Iniciar Sesión"}</button>
-              <p style={{ textAlign:"center",color:"#4b5563",fontSize:13,marginTop:18,marginBottom:0 }}>¿No tienes cuenta? <span onClick={()=>{setMode("register");setError("");}} style={{color:"#2563eb",cursor:"pointer",fontWeight:700}}>Regístrate</span></p>
+              <button onClick={handleLogin} disabled={loading} style={{ width:"100%",background:"linear-gradient(135deg,#2563eb,#1d4ed8)",border:"none",borderRadius:10,padding:13,color:"#fff",fontWeight:800,fontSize:15,cursor:loading?"not-allowed":"pointer",opacity:loading?.7:1,fontFamily:"DM Sans,sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:10 }}>{loading?<><Spinner/>Loading…</>:"Iniciar Sesión"}</button>
+              <p style={{ textAlign:"center",color:"#4b5563",fontSize:13,marginTop:18,marginBottom:0 }}>¿Are you New? <span onClick={()=>{setMode("register");setError("");}} style={{color:"#2563eb",cursor:"pointer",fontWeight:700}}>Register Here!!</span></p>
             </>
           ) : (
             <>
-              <div style={{ marginBottom: 14 }}><label style={S.label}>Nombre completo</label><input value={form.name} onChange={e => f("name",e.target.value)} placeholder="Juan Pérez" style={iStyle} /></div>
-              <div style={{ marginBottom: 14 }}><label style={S.label}>Correo</label><input value={form.email} onChange={e => f("email",e.target.value)} placeholder="tu@correo.com" type="email" style={iStyle} /></div>
+              <div style={{ marginBottom: 14 }}><label style={S.label}>Nombre/Name</label><input value={form.name} onChange={e => f("name",e.target.value)} placeholder="Juan Pérez" style={iStyle} /></div>
+              <div style={{ marginBottom: 14 }}><label style={S.label}>Email</label><input value={form.email} onChange={e => f("email",e.target.value)} placeholder="tu@correo.com" type="email" style={iStyle} /></div>
               <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14 }}>
-                <div><label style={S.label}>Contraseña</label><input value={form.password} onChange={e=>f("password",e.target.value)} placeholder="Mín. 6 car." type="password" style={iStyle}/></div>
-                <div><label style={S.label}>Confirmar</label><input value={form.confirm} onChange={e=>f("confirm",e.target.value)} placeholder="Repite" type="password" style={iStyle}/></div>
+                <div><label style={S.label}>Password</label><input value={form.password} onChange={e=>f("password",e.target.value)} placeholder="Mín. 6 car." type="password" style={iStyle}/></div>
+                <div><label style={S.label}>Confirm</label><input value={form.confirm} onChange={e=>f("confirm",e.target.value)} placeholder="Repite" type="password" style={iStyle}/></div>
               </div>
               <div style={{ marginBottom: 22 }}>
                 <label style={S.label}>Perfil</label>
@@ -1731,7 +1731,7 @@ function HelpModal({ currentUser, lang = "es", onClose }) {
             <div style={{ width: 38, height: 38, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>❓</div>
             <div>
               <h3 style={{ margin: 0, color: "#f9fafb", fontSize: 16, fontWeight: 800 }}>{T2("Manual de Usuario","User Manual")}</h3>
-              <p style={{ margin: 0, color: "#6b7280", fontSize: 12 }}>{T2("MantPro — Guía completa","MantPro — Complete guide")}</p>
+              <p style={{ margin: 0, color: "#6b7280", fontSize: 12 }}>{T2("MantenimientoApp — Guía completa","MaintenanceApp — Complete guide")}</p>
             </div>
           </div>
           <button onClick={onClose} style={{ background: "#1f2937", border: "none", color: "#9ca3af", cursor: "pointer", width: 30, height: 30, borderRadius: 8, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
@@ -1751,7 +1751,7 @@ function HelpModal({ currentUser, lang = "es", onClose }) {
             {tab === "inicio" && (
               <div>
                 <H2>{T2("Bienvenido a MantenimientoApp 🔧","Welcome to MaintenanceApp 🔧")}</H2>
-                <P>{T2("MantenimientoApp es un sistema profesional para gestionar reportes de mantenimiento, presupuestos, cronogramas y seguimiento completo hasta el visto bueno del cliente.","MantPro is a professional system to manage maintenance reports, budgets, work schedules and full follow-up until client approval.")}</P>
+                <P>{T2("MantenimientoApp es un sistema profesional para gestionar reportes de mantenimiento, presupuestos, cronogramas y seguimiento completo hasta el visto bueno del cliente.","MaintenanceApp is a professional system to manage maintenance reports, budgets, work schedules and full follow-up until client approval.")}</P>
                 <H3>{T2("Tu perfil actual","Your current profile")}</H3>
                 <div style={{ background: "#1f2937", borderRadius: 10, padding: 14, marginBottom: 14 }}>
                   {role === "superadmin" && <><div style={{ color: "#f59e0b", fontWeight: 800, fontSize: 15, marginBottom: 6 }}>⭐ Super Admin</div><P>{T2("Tienes acceso total al sistema. Puedes ver y gestionar todos los reportes, clientes y usuarios sin restricciones.","You have full access to the system. You can view and manage all reports, clients and users without restrictions.")}</P></>}
@@ -1898,7 +1898,7 @@ function HelpModal({ currentUser, lang = "es", onClose }) {
         </div>
 
         <div style={{ padding: "12px 24px", borderTop: "1px solid #1f2937", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#070d1b", flexShrink: 0 }}>
-          <span style={{ color: "#4b5563", fontSize: 12 }}>{T2("MantPro — Manual de Usuario v1.0","MantPro — User Manual v1.0")}</span>
+          <span style={{ color: "#4b5563", fontSize: 12 }}>{T2("MantenimientoApp — Manual de Usuario v1.0","MaintenanceApp — User Manual v1.0")}</span>
           <Btn variant="g" sm onClick={onClose}>{T2("Cerrar","Close")}</Btn>
         </div>
       </div>
@@ -2216,7 +2216,7 @@ export default function App() {
       {/* FOOTER */}
       <div style={{borderTop:"1px solid #0f172a",marginTop:40,padding:"18px 24px",textAlign:"center"}}>
         <p style={{margin:0,color:"#374151",fontSize:12,fontFamily:"DM Sans,sans-serif"}}>
-          © {new Date().getFullYear()} <span style={{color:"#4b5563",fontWeight:700}}>DevSoft Heron or JMEB</span> · MantPro by JMEB · Todos los derechos reservados
+          © {new Date().getFullYear()} <span style={{color:"#4b5563",fontWeight:700}}>DevSoft Heron by JMEB</span> · Todos los derechos reservados
         </p>
       </div>
     </div>
