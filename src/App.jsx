@@ -2128,7 +2128,7 @@ export default function App() {
       {/* FOOTER */}
       <div style={{borderTop:"1px solid #0f172a",marginTop:40,padding:"18px 24px",textAlign:"center"}}>
         <p style={{margin:0,color:"#374151",fontSize:12,fontFamily:"DM Sans,sans-serif"}}>
-          © {new Date().getFullYear()} <span style={{color:"#4b5563",fontWeight:700}}>JMEB</span> · Todos los derechos reservados
+          © {new Date().getFullYear()} <span style={{color:"#4b5563",fontWeight:700}}>DevSoftHeron Jaime Martin Estrada Bernabe</span> · Todos los derechos reservados
         </p>
       </div>
     </div>
