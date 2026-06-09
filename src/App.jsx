@@ -34,6 +34,42 @@ const mkFolio = () => "MNT-" + String(Math.floor(Math.random() * 9000) + 1000);
 const mkAvatar = name => name.trim().split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
 const isSuperEmail = email => email?.toLowerCase() === SUPERUSER.email?.toLowerCase();
 
+// ── MEMBERSHIP CONFIG ────────────────────────────────────────────────────────
+const PLANS = {
+  tecnico:     { label: "Plan Técnico",     price: 15.99, currency: "USD", desc: "Acceso individual completo" },
+  empresarial: { label: "Plan Empresarial", price: 30.99, currency: "USD", desc: "Incluye 2 técnicos gratis" },
+  tecnico_extra: { label: "Técnico Extra",  price: 14.99, currency: "USD", desc: "Por técnico adicional" },
+};
+
+function daysLeft(expiresAt) {
+  if (!expiresAt) return 0;
+  const diff = new Date(expiresAt) - new Date();
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+}
+
+async function createCheckoutSession(profileId, plan, extraTecnicos = 0) {
+  const res = await fetch(
+    `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/create-checkout`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        profileId,
+        plan,
+        extraTecnicos,
+        successUrl: window.location.origin + "?payment=success",
+        cancelUrl: window.location.origin + "?payment=canceled",
+      }),
+    }
+  );
+  const data = await res.json();
+  if (data.url) window.location.href = data.url;
+  return data;
+}
+
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 const STATUS_CFG = {
   borrador:    { label: "Borrador",       color: "#94a3b8", bg: "#1e293b" },
@@ -274,11 +310,11 @@ async function fetchReports(user) {
     .select(`*, clients(name,email,contact,rfc), findings(*), photos(*), budgets(*, budget_items(*)), schedule(*), timeline(*)`)
     .order("created_at", { ascending: false });
 
-  // Técnico: solo sus reportes (creados o asignados)
+  // Técnico individual: solo sus reportes
   if (user && user.role === "tecnico") {
     query = query.or(`created_by.eq.${user.id},assigned_to.eq.${user.id}`);
   }
-  // Admin y superadmin: todos los reportes (sin filtro)
+  // Empresarial y superadmin: RLS maneja el filtro en Supabase
 
   const { data } = await query;
   return (data || []).map(normalizeReport);
@@ -375,6 +411,33 @@ async function markAllNotifsRead(userId) {
 async function deleteNotif(id) {
   await supabase.from("notifications").delete().eq("id", id);
 }
+
+// ── COMPANY MEMBERS ───────────────────────────────────────────
+async function fetchCompanyMembers(companyId) {
+  const { data } = await supabase
+    .from("company_members")
+    .select("*, profiles!company_members_tecnico_id_fkey(*)")
+    .eq("company_id", companyId);
+  return data || [];
+}
+
+async function addCompanyMember(companyId, tecnicoId) {
+  const { error } = await supabase
+    .from("company_members")
+    .insert({ company_id: companyId, tecnico_id: tecnicoId });
+  return error;
+}
+
+async function removeCompanyMember(companyId, tecnicoId) {
+  const { error } = await supabase
+    .from("company_members")
+    .delete()
+    .eq("company_id", companyId)
+    .eq("tecnico_id", tecnicoId);
+  return error;
+}
+
+
 
 // ══════════════════════════════════════════════════════════════════════════════
 // AUTH SCREEN
@@ -502,7 +565,7 @@ function AuthScreen({ onLogin }) {
               <div style={{ marginBottom: 22 }}>
                 <label style={S.label}>Perfil</label>
                 <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:8 }}>
-                  {[["admin","👑 Administrador","Acceso completo"],["tecnico","🔧 Técnico","Gestión de reportes"]].map(([val,lbl,desc]) => (
+                  {[["empresarial","🏢 Empresarial","Gestiona múltiples técnicos"],["tecnico","🔧 Técnico","Reportes y clientes propios"]].map(([val,lbl,desc]) => (
                     <div key={val} onClick={()=>f("role",val)} style={{ background:form.role===val?"#1e3a5f":"#1f2937",border:`1.5px solid ${form.role===val?"#2563eb":"#374151"}`,borderRadius:10,padding:"10px 12px",cursor:"pointer" }}>
                       <div style={{ fontWeight:700,fontSize:13,color:form.role===val?"#60a5fa":"#f9fafb" }}>{lbl}</div>
                       <div style={{ fontSize:11,color:"#6b7280",marginTop:2 }}>{desc}</div>
@@ -524,11 +587,113 @@ function AuthScreen({ onLogin }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // USERS MODULE
 // ══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// MI EQUIPO MODULE (solo para empresarial)
+// ══════════════════════════════════════════════════════════════════════════════
+function MiEquipoModule({ profiles, currentUser, setCurrentUser, toast }) {
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [selectedId, setSelectedId] = useState("");
+
+  useEffect(() => { loadMembers(); }, []);
+
+  async function loadMembers() {
+    setLoading(true);
+    const data = await fetchCompanyMembers(currentUser.id);
+    setMembers(data);
+    // Update currentUser.members list for NewReportModal
+    const ids = data.map(m => m.tecnico_id);
+    setCurrentUser(u => ({ ...u, members: ids }));
+    setLoading(false);
+  }
+
+  async function add() {
+    if (!selectedId) return;
+    if (members.find(m => m.tecnico_id === selectedId)) return toast("Ese técnico ya está en tu equipo", "error");
+    setAdding(true);
+    const err = await addCompanyMember(currentUser.id, selectedId);
+    if (err) { toast("Error al agregar técnico", "error"); setAdding(false); return; }
+    await loadMembers();
+    setSelectedId("");
+    setAdding(false);
+    toast("Técnico agregado al equipo", "success");
+  }
+
+  async function remove(tecnicoId) {
+    const err = await removeCompanyMember(currentUser.id, tecnicoId);
+    if (err) return toast("Error al eliminar", "error");
+    await loadMembers();
+    toast("Técnico eliminado del equipo", "success");
+  }
+
+  // Available tecnicos not yet in team
+  const memberIds = members.map(m => m.tecnico_id);
+  const available = profiles.filter(p => p.role === "tecnico" && !memberIds.includes(p.id));
+
+  return (
+    <div>
+      <div style={{ marginBottom: 20 }}>
+        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#f9fafb" }}>Mi Equipo</h2>
+        <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: 13 }}>{members.length} técnicos vinculados a tu cuenta</p>
+      </div>
+
+      {/* Agregar técnico */}
+      <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: 12, padding: 18, marginBottom: 20 }}>
+        <label style={S.label}>Agregar técnico existente</label>
+        <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+          <select value={selectedId} onChange={e => setSelectedId(e.target.value)} style={{ ...S.input, flex: 1 }}>
+            <option value="">Seleccionar técnico…</option>
+            {available.map(p => <option key={p.id} value={p.id}>{p.name} — {p.email}</option>)}
+          </select>
+          <Btn variant="s" onClick={add} disabled={adding || !selectedId}>
+            {adding ? <><Spinner /> Agregando…</> : "+ Agregar"}
+          </Btn>
+        </div>
+        {available.length === 0 && (
+          <p style={{ color: "#4b5563", fontSize: 12, marginTop: 8, marginBottom: 0 }}>
+            No hay técnicos disponibles. Pídeles que se registren en la app primero.
+          </p>
+        )}
+      </div>
+
+      {/* Lista de miembros */}
+      {currentUser.role !== "superadmin" && <DemoBanner currentUser={currentUser} />}
+      {loading ? (
+        <div style={{ display: "flex", justifyContent: "center", padding: 40 }}><Spinner /></div>
+      ) : members.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "50px 0", color: "#4b5563" }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>👥</div>
+          <div style={{ fontWeight: 700, color: "#6b7280" }}>Aún no tienes técnicos vinculados</div>
+          <p style={{ fontSize: 13, marginTop: 8 }}>Agrega técnicos para ver sus reportes y asignarles trabajo</p>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {members.map(m => {
+            const p = m["profiles!company_members_tecnico_id_fkey"] || {};
+            return (
+              <div key={m.id} style={{ ...S.card, padding: "14px 20px", display: "flex", alignItems: "center", gap: 14 }}>
+                <Avatar initials={p.avatar || mkAvatar(p.name || "?")} size={42} color="#60a5fa" />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, color: "#f9fafb", fontSize: 14 }}>{p.name}</div>
+                  <div style={{ color: "#6b7280", fontSize: 12, marginTop: 2 }}>{p.email} · 🔧 Técnico</div>
+                </div>
+                <div style={{ fontSize: 11, color: "#4b5563" }}>Desde {fmtDate(m.created_at?.slice(0, 10))}</div>
+                <Btn variant="d" sm onClick={() => remove(m.tecnico_id)}>Desvincular</Btn>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function UsersModule({ profiles, setProfiles, currentUser, toast }) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "tecnico" });
-  const ROLE_CFG = { superadmin:{label:"⭐ Super Admin",color:"#f59e0b",bg:"#451a03"}, admin:{label:"👑 Admin",color:"#a78bfa",bg:"#2e1065"}, tecnico:{label:"🔧 Técnico",color:"#60a5fa",bg:"#1e3a5f"} };
+  const ROLE_CFG = { superadmin:{label:"⭐ Super Admin",color:"#f59e0b",bg:"#451a03"}, empresarial:{label:"🏢 Empresarial",color:"#a78bfa",bg:"#2e1065"}, tecnico:{label:"🔧 Técnico",color:"#60a5fa",bg:"#1e3a5f"} };
 
   function openEdit(u) {
     if (u.protected) return toast("El superusuario no se puede editar","error");
@@ -575,7 +740,7 @@ function UsersModule({ profiles, setProfiles, currentUser, toast }) {
           <div style={{ marginBottom:20 }}>
             <label style={S.label}>Perfil</label>
             <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:8 }}>
-              {[["admin","👑 Administrador","Acceso completo"],["tecnico","🔧 Técnico","Gestión de reportes"]].map(([val,lbl,desc]) => (
+              {[["empresarial","🏢 Empresarial","Gestiona múltiples técnicos"],["tecnico","🔧 Técnico","Reportes y clientes propios"]].map(([val,lbl,desc]) => (
                 <div key={val} onClick={()=>setForm({...form,role:val})} style={{ background:form.role===val?"#1e3a5f":"#1f2937",border:`1.5px solid ${form.role===val?"#2563eb":"#374151"}`,borderRadius:10,padding:"10px 12px",cursor:"pointer" }}>
                   <div style={{fontWeight:700,fontSize:13,color:form.role===val?"#60a5fa":"#f9fafb"}}>{lbl}</div>
                   <div style={{fontSize:11,color:"#6b7280",marginTop:2}}>{desc}</div>
@@ -746,7 +911,7 @@ function NotificationsPanel({ notifs, setNotifs, currentUser, onSelectReport }) 
 // NEW REPORT MODAL
 // ══════════════════════════════════════════════════════════════════════════════
 function NewReportModal({ onClose, onSave, clients, profiles, currentUser }) {
-  const isAdmin = ["admin","superadmin"].includes(currentUser.role);
+  const isAdmin = ["empresarial","superadmin"].includes(currentUser.role);
   const [form, setForm] = useState({ clientId:"", title:"", description:"", date:today(), assignedTo: isAdmin?"":currentUser.id });
   const [findings, setFindings] = useState([{ id:genId(), description:"", severity:"media" }]);
   const [photos, setPhotos] = useState([]);
@@ -785,7 +950,9 @@ function NewReportModal({ onClose, onSave, clients, profiles, currentUser }) {
     setSaving(false);
   }
 
-  const techUsers = profiles.filter(p => p.role === "tecnico");
+  const techUsers = currentUser.role === "superadmin"
+    ? profiles.filter(p => p.role === "tecnico")
+    : profiles.filter(p => p.role === "tecnico" && (currentUser.members || []).includes(p.id));
 
   return (
     <Modal title="📋 Nuevo Reporte de Mantenimiento" onClose={onClose} wide>
@@ -1187,6 +1354,508 @@ function ReportDetail({ report, clients, profiles, currentUser, onClose, onRefre
 // ══════════════════════════════════════════════════════════════════════════════
 // MAIN APP
 // ══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// HELP MODAL — Manual de usuario
+// ══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// BLOCKED SCREEN — pantalla de membresía expirada
+// ══════════════════════════════════════════════════════════════════════════════
+function BlockedScreen({ currentUser, onLogout }) {
+  const [loading, setLoading] = useState(false);
+  const [extraTecnicos, setExtraTecnicos] = useState(0);
+  const role = currentUser.role;
+  const isEmpresarial = role === "empresarial";
+  const basePrice = isEmpresarial ? 30.99 : 15.99;
+  const extraPrice = extraTecnicos * 14.99;
+  const totalPrice = basePrice + extraPrice;
+
+  async function handleCheckout(plan) {
+    setLoading(true);
+    await createCheckoutSession(currentUser.id, plan, isEmpresarial ? extraTecnicos : 0);
+    setLoading(false);
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#030712", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "DM Sans, sans-serif", padding: 24 }}>
+      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 30%, #dc262620 0%, transparent 60%)" }} />
+      <div style={{ position: "relative", width: "100%", maxWidth: 520, textAlign: "center" }}>
+        <div style={{ fontSize: 72, marginBottom: 8 }}>🔒</div>
+        <h1 style={{ color: "#f9fafb", fontSize: 26, fontWeight: 800, margin: "0 0 10px" }}>Tu periodo demo ha terminado</h1>
+        <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 32, lineHeight: 1.7 }}>
+          Los 30 días gratuitos han concluido. Activa tu membresía para continuar usando MantenimientoApp y acceder a todos tus datos.
+        </p>
+
+        <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: 18, padding: 28, marginBottom: 20 }}>
+          <div style={{ display: "inline-block", background: isEmpresarial ? "#2e1065" : "#1e3a5f", border: `1px solid ${isEmpresarial ? "#a78bfa" : "#60a5fa"}50`, borderRadius: 8, padding: "4px 14px", fontSize: 12, fontWeight: 700, color: isEmpresarial ? "#a78bfa" : "#60a5fa", marginBottom: 16 }}>
+            {isEmpresarial ? "🏢 Plan Empresarial" : "🔧 Plan Técnico"}
+          </div>
+
+          <div style={{ fontSize: 48, fontWeight: 800, color: "#f9fafb", marginBottom: 4 }}>
+            ${totalPrice} <span style={{ fontSize: 18, color: "#6b7280", fontWeight: 400 }}>USD/mes</span>
+          </div>
+
+          <div style={{ color: "#6b7280", fontSize: 13, marginBottom: 20, lineHeight: 1.8 }}>
+            {isEmpresarial ? (
+              <>Plan base $30.99 USD · incluye 2 técnicos gratis</>
+            ) : (
+              <>Acceso individual completo a todos los módulos</>
+            )}
+          </div>
+
+          {isEmpresarial && (
+            <div style={{ background: "#1f2937", borderRadius: 10, padding: 14, marginBottom: 20, textAlign: "left" }}>
+              <label style={{ color: "#6b7280", fontSize: 11, fontWeight: 700, letterSpacing: 0.5, display: "block", marginBottom: 8 }}>TÉCNICOS ADICIONALES (opcional)</label>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <button onClick={() => setExtraTecnicos(Math.max(0, extraTecnicos - 1))} style={{ width: 32, height: 32, borderRadius: 8, background: "#374151", border: "none", color: "#f9fafb", fontSize: 18, cursor: "pointer" }}>−</button>
+                <span style={{ color: "#f9fafb", fontWeight: 800, fontSize: 18, minWidth: 24, textAlign: "center" }}>{extraTecnicos}</span>
+                <button onClick={() => setExtraTecnicos(extraTecnicos + 1)} style={{ width: 32, height: 32, borderRadius: 8, background: "#374151", border: "none", color: "#f9fafb", fontSize: 18, cursor: "pointer" }}>+</button>
+                <span style={{ color: "#6b7280", fontSize: 13 }}>× $14.99 USD = <strong style={{ color: "#a78bfa" }}>${extraPrice} USD</strong></span>
+              </div>
+              <p style={{ color: "#4b5563", fontSize: 11, marginTop: 8, marginBottom: 0 }}>Los primeros 2 técnicos ya están incluidos en el plan base.</p>
+            </div>
+          )}
+
+          <button onClick={() => handleCheckout(role)} disabled={loading} style={{ width: "100%", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", borderRadius: 12, padding: "15px", color: "#fff", fontWeight: 800, fontSize: 16, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1, fontFamily: "DM Sans, sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 4px 24px #2563eb40" }}>
+            {loading ? <><Spinner /> Redirigiendo a Stripe…</> : `💳 Activar membresía — $${totalPrice} USD/mes`}
+          </button>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 14, color: "#4b5563", fontSize: 12 }}>
+            <span>🔒</span> Pago seguro con Stripe · Cancela cuando quieras
+          </div>
+        </div>
+
+        <button onClick={onLogout} style={{ background: "none", border: "none", color: "#4b5563", cursor: "pointer", fontSize: 13, fontFamily: "DM Sans, sans-serif" }}>
+          Cerrar sesión
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DEMO BANNER — banner de días restantes
+// ══════════════════════════════════════════════════════════════════════════════
+function DemoBanner({ currentUser }) {
+  const days = daysLeft(currentUser.demo_expires_at);
+  if (currentUser.status !== "demo") return null;
+
+  const color = days <= 5 ? "#f87171" : days <= 10 ? "#fbbf24" : "#60a5fa";
+  const bg    = days <= 5 ? "#450a0a" : days <= 10 ? "#451a03" : "#1e3a5f";
+
+  return (
+    <div style={{ background: bg, borderBottom: `1px solid ${color}30`, padding: "8px 20px", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, fontSize: 13 }}>
+      <span style={{ fontSize: 16 }}>{days <= 5 ? "⚠️" : "🎉"}</span>
+      <span style={{ color: "#f9fafb" }}>
+        {days === 0 ? "Tu demo expira hoy." : `Periodo demo: ${days} día${days !== 1 ? "s" : ""} restante${days !== 1 ? "s" : ""}.`}
+      </span>
+      <span style={{ color, fontWeight: 700 }}>Activa tu membresía antes de que expire.</span>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ADMIN USERS MODULE — panel de gestión para Super Admin
+// ══════════════════════════════════════════════════════════════════════════════
+function AdminUsersModule({ profiles, setProfiles, toast }) {
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("todos");
+  const [selected, setSelected] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const STATUS_CFG_M = {
+    demo:      { label: "Demo",      color: "#60a5fa", bg: "#1e3a5f" },
+    activo:    { label: "Activo",    color: "#4ade80", bg: "#14532d" },
+    bloqueado: { label: "Bloqueado", color: "#f87171", bg: "#450a0a" },
+  };
+
+  async function updateUserStatus(profileId, status) {
+    setSaving(true);
+    // Use service role via edge function to bypass RLS for superadmin
+    const { error } = await supabase.rpc("admin_update_profile_status", {
+      p_profile_id: profileId,
+      p_status: status,
+    });
+    if (error) { toast("Error: " + error.message, "error"); setSaving(false); return; }
+    setProfiles(profiles.map(p => p.id === profileId ? { ...p, status } : p));
+    if (selected?.id === profileId) setSelected(s => ({ ...s, status }));
+    toast(`Usuario ${status === "activo" ? "activado" : status === "bloqueado" ? "bloqueado" : "en demo"}`, "success");
+    setSaving(false);
+  }
+
+  async function extendDemo(profileId, days) {
+    setSaving(true);
+    const newExpiry = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+    const { error } = await supabase.rpc("admin_extend_demo", {
+      p_profile_id: profileId,
+      p_expires_at: newExpiry,
+    });
+    if (error) { toast("Error: " + error.message, "error"); setSaving(false); return; }
+    setProfiles(profiles.map(p => p.id === profileId ? { ...p, status: "demo", demo_expires_at: newExpiry } : p));
+    if (selected?.id === profileId) setSelected(s => ({ ...s, status: "demo", demo_expires_at: newExpiry }));
+    toast(`Demo extendido ${days} días`, "success");
+    setSaving(false);
+  }
+
+  const all = [SUPERUSER, ...profiles];
+  const filtered = all.filter(p => {
+    const ok1 = filterStatus === "todos" || p.status === filterStatus || (filterStatus === "todos");
+    const ok2 = !search || p.name?.toLowerCase().includes(search.toLowerCase()) || p.email?.toLowerCase().includes(search.toLowerCase());
+    return ok1 && ok2;
+  }).filter(p => filterStatus === "todos" || p.status === filterStatus);
+
+  const stats = {
+    total: profiles.length,
+    demo: profiles.filter(p => p.status === "demo").length,
+    activos: profiles.filter(p => p.status === "activo").length,
+    bloqueados: profiles.filter(p => p.status === "bloqueado").length,
+  };
+
+  return (
+    <div>
+      {/* STATS */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
+        {[
+          { l: "TOTAL USUARIOS", v: stats.total,     c: "#2563eb", ic: "👤" },
+          { l: "EN DEMO",        v: stats.demo,       c: "#60a5fa", ic: "🎉" },
+          { l: "ACTIVOS",        v: stats.activos,    c: "#4ade80", ic: "✅" },
+          { l: "BLOQUEADOS",     v: stats.bloqueados, c: "#f87171", ic: "🔒" },
+        ].map(({ l, v, c, ic }) => (
+          <div key={l} style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: 12, padding: "14px 18px", display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: `${c}15`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{ic}</div>
+            <div><div style={{ color: "#6b7280", fontSize: 10, fontWeight: 700, letterSpacing: 0.8 }}>{l}</div><div style={{ color: "#f9fafb", fontSize: 20, fontWeight: 800 }}>{v}</div></div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#f9fafb" }}>Gestión de Usuarios</h2>
+        <div style={{ display: "flex", gap: 10 }}>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Buscar…" style={{ ...S.input, width: 200 }} />
+          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ ...S.input, width: "auto" }}>
+            <option value="todos">Todos</option>
+            <option value="demo">Demo</option>
+            <option value="activo">Activos</option>
+            <option value="bloqueado">Bloqueados</option>
+          </select>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {filtered.map(u => {
+          const days = daysLeft(u.demo_expires_at);
+          const sc = STATUS_CFG_M[u.status] || STATUS_CFG_M.demo;
+          return (
+            <div key={u.id} style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: 12, padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = "#374151"}
+              onMouseLeave={e => e.currentTarget.style.borderColor = "#1f2937"}>
+              <Avatar initials={u.avatar || mkAvatar(u.name || "?")} size={42} color={u.protected ? "#f59e0b" : "#2563eb"} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
+                  <span style={{ fontWeight: 800, color: "#f9fafb", fontSize: 14 }}>{u.name}</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: sc.color, background: sc.bg, padding: "2px 8px", borderRadius: 99 }}>{sc.label}</span>
+                  <span style={{ fontSize: 10, color: "#6b7280" }}>{u.role === "superadmin" ? "⭐ Super Admin" : u.role === "empresarial" ? "🏢 Empresarial" : "🔧 Técnico"}</span>
+                  {u.protected && <span style={{ fontSize: 10, color: "#f59e0b" }}>🔒 Protegido</span>}
+                </div>
+                <div style={{ display: "flex", gap: 14, fontSize: 12, color: "#6b7280", flexWrap: "wrap" }}>
+                  <span>✉ {u.email}</span>
+                  {u.status === "demo" && <span style={{ color: days <= 5 ? "#f87171" : "#fbbf24" }}>⏳ {days} días restantes</span>}
+                  {u.plan && <span style={{ color: "#4ade80" }}>💳 {PLANS[u.plan]?.label}</span>}
+                  {u.status === "activo" && u.stripe_subscription_id && <span style={{ color: "#4ade80" }}>✓ Suscripción activa</span>}
+                </div>
+              </div>
+
+              {!u.protected && (
+                <div style={{ display: "flex", gap: 6, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  {u.status !== "activo" && (
+                    <Btn variant="s" sm onClick={() => updateUserStatus(u.id, "activo")} disabled={saving}>✓ Activar</Btn>
+                  )}
+                  {u.status !== "bloqueado" && (
+                    <Btn variant="d" sm onClick={() => updateUserStatus(u.id, "bloqueado")} disabled={saving}>🔒 Bloquear</Btn>
+                  )}
+                  {u.status !== "demo" && (
+                    <Btn variant="g" sm onClick={() => extendDemo(u.id, 30)} disabled={saving}>🎉 Demo 30d</Btn>
+                  )}
+                  {u.status === "demo" && (
+                    <Btn variant="g" sm onClick={() => extendDemo(u.id, 30)} disabled={saving}>+30 días</Btn>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function HelpModal({ currentUser, onClose }) {
+  const [tab, setTab] = useState("inicio");
+  const role = currentUser.role;
+
+  const TABS = [
+    { id: "inicio",       icon: "🏠", label: "Inicio" },
+    { id: "reportes",     icon: "📋", label: "Reportes" },
+    { id: "presupuestos", icon: "💰", label: "Presupuestos" },
+    { id: "cronograma",   icon: "📅", label: "Cronograma" },
+    { id: "clientes",     icon: "🏢", label: "Clientes" },
+    ...(role === "empresarial" ? [{ id: "equipo", icon: "👥", label: "Mi Equipo" }] : []),
+    { id: "flujo",        icon: "🔄", label: "Flujo de trabajo" },
+  ];
+
+  const H2 = ({ children }) => <h2 style={{ color: "#f9fafb", fontSize: 17, fontWeight: 800, margin: "0 0 14px", borderBottom: "1px solid #1f2937", paddingBottom: 10 }}>{children}</h2>;
+  const H3 = ({ children }) => <h3 style={{ color: "#60a5fa", fontSize: 13, fontWeight: 700, margin: "18px 0 8px", textTransform: "uppercase", letterSpacing: 0.8 }}>{children}</h3>;
+  const P = ({ children }) => <p style={{ color: "#9ca3af", fontSize: 13, lineHeight: 1.8, margin: "0 0 10px" }}>{children}</p>;
+  const Li = ({ icon, children }) => (
+    <div style={{ display: "flex", gap: 10, marginBottom: 8, alignItems: "flex-start" }}>
+      <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>{icon}</span>
+      <span style={{ color: "#9ca3af", fontSize: 13, lineHeight: 1.7 }}>{children}</span>
+    </div>
+  );
+  const Tip = ({ children }) => (
+    <div style={{ background: "#1e3a5f", border: "1px solid #2563eb30", borderRadius: 8, padding: "10px 14px", marginTop: 12, display: "flex", gap: 10 }}>
+      <span style={{ fontSize: 16, flexShrink: 0 }}>💡</span>
+      <span style={{ color: "#93c5fd", fontSize: 12, lineHeight: 1.7 }}>{children}</span>
+    </div>
+  );
+  const Badge = ({ color, bg, children }) => (
+    <span style={{ background: bg, color, border: `1px solid ${color}50`, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700, marginRight: 6 }}>{children}</span>
+  );
+  const Step = ({ n, title, children }) => (
+    <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
+      <div style={{ width: 28, height: 28, borderRadius: 99, background: "#2563eb", color: "#fff", fontWeight: 800, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{n}</div>
+      <div><div style={{ color: "#f9fafb", fontWeight: 700, fontSize: 13, marginBottom: 3 }}>{title}</div><div style={{ color: "#9ca3af", fontSize: 13, lineHeight: 1.7 }}>{children}</div></div>
+    </div>
+  );
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#000000b0", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background: "#0d1117", border: "1px solid #1f2937", borderRadius: 18, width: "100%", maxWidth: 820, maxHeight: "92vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 30px 80px #000c" }}>
+
+        {/* HEADER */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid #1f2937", flexShrink: 0, background: "linear-gradient(135deg, #0d1117, #111827)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 38, height: 38, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>❓</div>
+            <div>
+              <h3 style={{ margin: 0, color: "#f9fafb", fontSize: 16, fontWeight: 800 }}>Manual de Usuario</h3>
+              <p style={{ margin: 0, color: "#6b7280", fontSize: 12 }}>MantenimientoApp — Guía completa</p>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: "#1f2937", border: "none", color: "#9ca3af", cursor: "pointer", width: 30, height: 30, borderRadius: 8, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+        </div>
+
+        <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+          {/* SIDEBAR */}
+          <div style={{ width: 180, borderRight: "1px solid #1f2937", padding: "16px 10px", flexShrink: 0, overflowY: "auto", background: "#070d1b" }}>
+            {TABS.map(t => (
+              <button key={t.id} onClick={() => setTab(t.id)} style={{ width: "100%", background: tab === t.id ? "#1f2937" : "none", border: "none", color: tab === t.id ? "#2563eb" : "#6b7280", borderRadius: 8, padding: "9px 12px", cursor: "pointer", fontWeight: tab === t.id ? 700 : 500, fontSize: 13, fontFamily: "DM Sans, sans-serif", display: "flex", alignItems: "center", gap: 8, marginBottom: 2, textAlign: "left" }}>
+                <span>{t.icon}</span>{t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* CONTENT */}
+          <div style={{ flex: 1, overflowY: "auto", padding: 24 }}>
+
+            {tab === "inicio" && (
+              <div>
+                <H2>Bienvenido a MantenimientoApp 🔧</H2>
+                <P>MantenimientoApp es un sistema profesional para gestionar reportes de mantenimiento, presupuestos, cronogramas de trabajo y el seguimiento completo hasta que el cliente da su visto bueno.</P>
+
+                <H3>Tu perfil actual</H3>
+                <div style={{ background: "#1f2937", borderRadius: 10, padding: 14, marginBottom: 14 }}>
+                  {role === "superadmin" && <><div style={{ color: "#f59e0b", fontWeight: 800, fontSize: 15, marginBottom: 6 }}>⭐ Super Administrador</div><P>Tienes acceso total al sistema. Puedes ver y gestionar todos los reportes, clientes y usuarios sin restricciones.</P></>}
+                  {role === "empresarial" && <><div style={{ color: "#a78bfa", fontWeight: 800, fontSize: 15, marginBottom: 6 }}>🏢 Usuario Empresarial</div><P>Puedes gestionar tu equipo de técnicos y ver todos sus reportes y clientes. Asigna técnicos desde el módulo "Mi Equipo".</P></>}
+                  {role === "tecnico" && <><div style={{ color: "#60a5fa", fontWeight: 800, fontSize: 15, marginBottom: 6 }}>🔧 Técnico</div><P>Puedes crear y gestionar tus propios reportes, clientes y presupuestos. Solo verás la información que tú hayas creado o que te hayan asignado.</P></>}
+                </div>
+
+                <H3>Módulos disponibles</H3>
+                <Li icon="📋">Reportes — Crea y gestiona reportes de mantenimiento con fotos y hallazgos</Li>
+                <Li icon="🏢">Clientes — Registra y administra la información de tus clientes</Li>
+                <Li icon="🔔">Alertas — Notificaciones automáticas de cada evento importante</Li>
+                {role === "empresarial" && <Li icon="👥">Mi Equipo — Vincula técnicos a tu cuenta para ver sus reportes</Li>}
+                {role === "superadmin" && <Li icon="👤">Usuarios — Gestión global de todos los usuarios del sistema</Li>}
+
+                <Tip>Usa el botón ❓ en la barra superior para abrir este manual en cualquier momento.</Tip>
+              </div>
+            )}
+
+            {tab === "reportes" && (
+              <div>
+                <H2>📋 Reportes de Mantenimiento</H2>
+                <P>Los reportes son el corazón del sistema. Cada reporte documenta una inspección, sus hallazgos y el trabajo a realizar.</P>
+
+                <H3>Crear un reporte</H3>
+                <Step n="1" title="Clic en '+ Nuevo Reporte'">En la pantalla principal, presiona el botón azul en la esquina superior derecha.</Step>
+                <Step n="2" title="Selecciona el cliente">Elige el cliente de la lista desplegable. Si no existe, créalo primero en el módulo Clientes.</Step>
+                <Step n="3" title="Completa la información">Título, fecha de inspección, descripción general de los hallazgos{role !== "tecnico" ? " y técnico asignado" : ""}.</Step>
+                <Step n="4" title="Agrega hallazgos">Describe cada problema encontrado y asígnale severidad: 🔴 Alta, 🟡 Media, 🟢 Baja.</Step>
+                <Step n="5" title="Sube fotos de evidencia">Toca el botón + para agregar fotos desde tu dispositivo.</Step>
+                <Step n="6" title="Guarda el reporte">El reporte se crea en estado Borrador listo para agregar el presupuesto.</Step>
+
+                <H3>Estados del reporte</H3>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                  <Badge color="#94a3b8" bg="#1e293b">Borrador</Badge>
+                  <Badge color="#60a5fa" bg="#1e3a5f">Enviado</Badge>
+                  <Badge color="#34d399" bg="#064e3b">Autorizado</Badge>
+                  <Badge color="#a78bfa" bg="#3b0764">Anticipo OK</Badge>
+                  <Badge color="#fb923c" bg="#431407">En Proceso</Badge>
+                  <Badge color="#22d3ee" bg="#083344">Completado</Badge>
+                  <Badge color="#4ade80" bg="#14532d">Visto Bueno ✓</Badge>
+                  <Badge color="#f87171" bg="#450a0a">Rechazado</Badge>
+                </div>
+
+                <H3>Buscar y filtrar</H3>
+                <Li icon="🔍">Usa la barra de búsqueda para encontrar por folio, título o nombre del cliente.</Li>
+                <Li icon="🔽">Filtra por estado usando el selector desplegable.</Li>
+
+                <Tip>El folio se genera automáticamente (MNT-XXXX). Cada reporte queda registrado con quién lo creó y a quién se asignó.</Tip>
+              </div>
+            )}
+
+            {tab === "presupuestos" && (
+              <div>
+                <H2>💰 Presupuestos</H2>
+                <P>Una vez creado el reporte, el siguiente paso es generar el presupuesto con las partidas de trabajo a realizar.</P>
+
+                <H3>Crear o editar el presupuesto</H3>
+                <Step n="1" title="Abre el reporte">Haz clic en el reporte en la lista principal.</Step>
+                <Step n="2" title="Ve a la pestaña Presupuesto">Dentro del reporte selecciona la pestaña 💰 Presupuesto.</Step>
+                <Step n="3" title="Clic en 'Crear Presupuesto' o 'Editar'">Se abrirá el editor de partidas.</Step>
+                <Step n="4" title="Agrega las partidas">Para cada concepto ingresa: descripción, unidad de medida, cantidad y precio unitario. El total se calcula automáticamente.</Step>
+                <Step n="5" title="Define el % de anticipo">Mueve el control deslizante para establecer qué porcentaje se cobra por adelantado (10% a 80%).</Step>
+                <Step n="6" title="Guarda el presupuesto">El sistema calcula subtotal, IVA 16% y total automáticamente.</Step>
+
+                <H3>Exportar a PDF</H3>
+                <Li icon="📄">Presiona el botón PDF en la barra de acciones del reporte.</Li>
+                <Li icon="🖨">Se abrirá el documento en una nueva pestaña listo para imprimir o guardar.</Li>
+                <Li icon="✍️">El PDF incluye espacio para firma de autorización del cliente.</Li>
+
+                <H3>Pagos</H3>
+                <Li icon="💳">Una vez autorizado el presupuesto, registra el anticipo con el botón "Registrar Anticipo".</Li>
+                <Li icon="✅">Al dar visto bueno el cliente, se registra el pago final automáticamente.</Li>
+
+                <Tip>El presupuesto solo se puede enviar al cliente cuando tiene al menos una partida guardada.</Tip>
+              </div>
+            )}
+
+            {tab === "cronograma" && (
+              <div>
+                <H2>📅 Cronograma de Actividades</H2>
+                <P>El cronograma permite planificar y dar seguimiento a cada tarea del trabajo de mantenimiento.</P>
+
+                <H3>Crear el cronograma</H3>
+                <Step n="1" title="Abre el reporte y ve a la pestaña Cronograma">Solo disponible después de que el presupuesto fue autorizado.</Step>
+                <Step n="2" title="Clic en 'Crear Cronograma'">Se abrirá el editor de actividades.</Step>
+                <Step n="3" title="Agrega las actividades">Para cada tarea define: nombre, fecha de inicio, fecha de fin y responsable.</Step>
+                <Step n="4" title="Guarda el cronograma">Las actividades quedan ordenadas y listas para seguimiento.</Step>
+
+                <H3>Actualizar el avance</H3>
+                <Li icon="📊">Abre el cronograma y edita cada actividad para actualizar su porcentaje de avance.</Li>
+                <Li icon="🔄">Cambia el estado de cada actividad: Pendiente → En Curso → Completada.</Li>
+                <Li icon="📈">El avance general del proyecto se calcula automáticamente como promedio de todas las actividades.</Li>
+
+                <Tip>Mantén el cronograma actualizado para que el usuario empresarial y el cliente puedan ver el progreso en tiempo real.</Tip>
+              </div>
+            )}
+
+            {tab === "clientes" && (
+              <div>
+                <H2>🏢 Clientes</H2>
+                <P>El módulo de clientes te permite registrar y administrar la información de contacto de quienes contratan tus servicios.</P>
+
+                <H3>Registrar un cliente nuevo</H3>
+                <Step n="1" title="Ve al módulo Clientes">Clic en 🏢 Clientes en el menú superior.</Step>
+                <Step n="2" title="Clic en '+ Nuevo Cliente'">Se abrirá el formulario de registro.</Step>
+                <Step n="3" title="Completa los datos">Razón social, RFC, correo, teléfono, dirección y persona de contacto.</Step>
+                <Step n="4" title="Guarda">El cliente quedará disponible al crear reportes.</Step>
+
+                <H3>Editar o eliminar</H3>
+                <Li icon="✏️">Presiona el botón de editar para actualizar los datos del cliente.</Li>
+                <Li icon="🗑">Solo puedes eliminar clientes que no tengan reportes asociados.</Li>
+
+                <H3>Visibilidad</H3>
+                <Li icon="🔒">Cada usuario solo ve sus propios clientes.</Li>
+                {role === "empresarial" && <Li icon="👥">Como empresarial también ves los clientes de tus técnicos vinculados.</Li>}
+                {role === "superadmin" && <Li icon="⭐">Como Super Admin ves todos los clientes del sistema.</Li>}
+
+                <Tip>Crea el cliente antes de crear el reporte. Sin cliente no es posible guardar un reporte.</Tip>
+              </div>
+            )}
+
+            {tab === "equipo" && role === "empresarial" && (
+              <div>
+                <H2>👥 Mi Equipo</H2>
+                <P>El módulo Mi Equipo te permite vincular técnicos a tu cuenta para supervisar su trabajo y ver todos sus reportes.</P>
+
+                <H3>Vincular un técnico</H3>
+                <Step n="1" title="El técnico debe registrarse primero">Pídele que cree su cuenta en la app eligiendo el perfil 🔧 Técnico.</Step>
+                <Step n="2" title="Ve a Mi Equipo">Clic en 👥 Mi Equipo en el menú superior.</Step>
+                <Step n="3" title="Selecciona el técnico">En el selector desplegable aparecerán todos los técnicos registrados no vinculados aún.</Step>
+                <Step n="4" title="Clic en Agregar">El técnico quedará vinculado a tu cuenta inmediatamente.</Step>
+
+                <H3>Una vez vinculado</H3>
+                <Li icon="📋">Verás todos sus reportes en tu lista de reportes.</Li>
+                <Li icon="🏢">Verás todos sus clientes en tu módulo de clientes.</Li>
+                <Li icon="👤">Al crear un reporte podrás asignárselo directamente.</Li>
+
+                <H3>Desvincular un técnico</H3>
+                <Li icon="🔓">Presiona el botón Desvincular en la tarjeta del técnico.</Li>
+                <Li icon="⚠️">Sus reportes y clientes ya creados no se eliminan, solo dejarás de verlos.</Li>
+
+                <Tip>Un técnico puede estar vinculado a varios usuarios empresariales al mismo tiempo.</Tip>
+              </div>
+            )}
+
+            {tab === "flujo" && (
+              <div>
+                <H2>🔄 Flujo de Trabajo Completo</H2>
+                <P>Este es el ciclo completo que sigue cada reporte desde que se crea hasta que el trabajo concluye.</P>
+
+                <div style={{ position: "relative", paddingLeft: 28, marginTop: 8 }}>
+                  {[
+                    ["📋", "Borrador",     "#94a3b8", "Creas el reporte con hallazgos y fotos. Agregas las partidas del presupuesto."],
+                    ["📤", "Enviado",      "#60a5fa", "Presionas 'Enviar al Cliente'. El reporte queda en espera de respuesta."],
+                    ["✅", "Autorizado",   "#34d399", "El cliente aprueba el presupuesto. Puedes registrar el anticipo."],
+                    ["💳", "Anticipo OK",  "#a78bfa", "Se registra el pago del anticipo acordado. Los trabajos están listos para iniciar."],
+                    ["🔧", "En Proceso",   "#fb923c", "Los trabajos inician. Actualiza el cronograma con el avance real."],
+                    ["🏁", "Completado",   "#22d3ee", "Todos los trabajos concluyen. El cliente debe revisar y dar su visto bueno."],
+                    ["⭐", "Visto Bueno",  "#4ade80", "El cliente aprueba el trabajo. Se registra el pago final. ¡Proyecto cerrado!"],
+                  ].map(([icon, estado, color, desc], i, arr) => (
+                    <div key={estado} style={{ position: "relative", marginBottom: 20 }}>
+                      <div style={{ position: "absolute", left: -28, top: 4, width: 20, height: 20, borderRadius: 99, background: color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11 }}>{icon}</div>
+                      {i < arr.length - 1 && <div style={{ position: "absolute", left: -19, top: 24, width: 2, height: "calc(100% + 4px)", background: "#1f2937" }} />}
+                      <div style={{ color, fontWeight: 800, fontSize: 13, marginBottom: 3 }}>{estado}</div>
+                      <div style={{ color: "#9ca3af", fontSize: 13, lineHeight: 1.7 }}>{desc}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <H3>Si el cliente rechaza</H3>
+                <Li icon="❌">El reporte pasa a estado Rechazado.</Li>
+                <Li icon="💬">Usa la pestaña Seguimiento para registrar notas sobre el motivo.</Li>
+                <Li icon="✏️">Puedes editar el presupuesto y volver a enviarlo.</Li>
+
+                <H3>Bitácora de seguimiento</H3>
+                <Li icon="🕐">Cada cambio de estado queda registrado automáticamente con fecha y usuario.</Li>
+                <Li icon="📝">Puedes agregar notas manuales en la pestaña Seguimiento de cualquier reporte.</Li>
+
+                <Tip>El PDF del presupuesto se puede generar en cualquier momento desde la pestaña Presupuesto o el botón PDF en la barra de acciones.</Tip>
+              </div>
+            )}
+
+          </div>
+        </div>
+
+        {/* FOOTER */}
+        <div style={{ padding: "12px 24px", borderTop: "1px solid #1f2937", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#070d1b", flexShrink: 0 }}>
+          <span style={{ color: "#4b5563", fontSize: 12 }}>MantenimientoApp — Manual de Usuario v1.0</span>
+          <Btn variant="g" sm onClick={onClose}>Cerrar</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [profiles, setProfiles]       = useState([]);
@@ -1200,6 +1869,7 @@ export default function App() {
   const [filterStatus, setFilterStatus] = useState("todos");
   const [search, setSearch]           = useState("");
   const [loading, setLoading]         = useState(true);
+  const [showHelp, setShowHelp]         = useState(false);
 
   const toast = useCallback((msg, type="success") => {
     const id = genId();
@@ -1241,8 +1911,14 @@ export default function App() {
 
   // ── AUTH ─────────────────────────────────────────────────────────────────────
   async function handleLogin(profile, session) {
-    setCurrentUser(profile);
-    await loadAll(profile);
+    // Refresh profile from DB to get latest status/demo_expires_at
+    let freshProfile = profile;
+    if (profile.id !== SUPERUSER.id) {
+      const { data } = await supabase.from("profiles").select("*").eq("id", profile.id).single();
+      if (data) freshProfile = data;
+    }
+    setCurrentUser(freshProfile);
+    await loadAll(freshProfile);
   }
 
   async function handleLogout() {
@@ -1259,7 +1935,17 @@ export default function App() {
 
   if (!currentUser) return <AuthScreen onLogin={handleLogin} />;
 
-  const isAdmin = ["admin","superadmin"].includes(currentUser.role);
+  // Check demo expiry and block if needed
+  if (currentUser.role !== "superadmin") {
+    if (currentUser.status === "bloqueado") {
+      return <BlockedScreen currentUser={currentUser} onLogout={handleLogout} />;
+    }
+    if (currentUser.status === "demo" && daysLeft(currentUser.demo_expires_at) === 0) {
+      return <BlockedScreen currentUser={currentUser} onLogout={handleLogout} />;
+    }
+  }
+
+  const isAdmin = ["empresarial","superadmin"].includes(currentUser.role);
   const unread = notifs.filter(n=>!n.is_read).length;
 
   const filtered = reports.filter(r => {
@@ -1277,10 +1963,14 @@ export default function App() {
   };
 
   const NAV = [
-    {id:"reportes",   icon:"📋",label:"Reportes"},
-    {id:"clientes",   icon:"🏢",label:"Clientes"},
+    {id:"reportes",      icon:"📋",label:"Reportes"},
+    {id:"clientes",      icon:"🏢",label:"Clientes"},
     {id:"notificaciones",icon:"🔔",label:"Alertas",badge:unread},
-    ...(isAdmin?[{id:"usuarios",icon:"👥",label:"Usuarios"}]:[]),
+    ...(currentUser.role==="empresarial"?[{id:"miequipo",icon:"👥",label:"Mi Equipo"}]:[]),
+    ...(currentUser.role==="superadmin"?[
+      {id:"usuarios",    icon:"👤",label:"Usuarios"},
+      {id:"membresias",  icon:"💳",label:"Membresías"},
+    ]:[]),
   ];
 
   return (
@@ -1308,10 +1998,11 @@ export default function App() {
             <Avatar initials={currentUser.avatar||mkAvatar(currentUser.name)} size={32} color="#2563eb" />
             <div style={{fontSize:13}}>
               <div style={{fontWeight:700,color:"#f9fafb"}}>{currentUser.name}</div>
-              <div style={{fontSize:10,color:currentUser.role==="superadmin"?"#f59e0b":"#6b7280",fontWeight:currentUser.role==="superadmin"?700:400}}>
-                {currentUser.role==="superadmin"?"⭐ Super Admin":currentUser.role}
+              <div style={{fontSize:10,color:currentUser.role==="superadmin"?"#f59e0b":currentUser.role==="empresarial"?"#a78bfa":"#6b7280",fontWeight:["superadmin","empresarial"].includes(currentUser.role)?700:400}}>
+                {currentUser.role==="superadmin"?"⭐ Super Admin":currentUser.role==="empresarial"?"🏢 Empresarial":"🔧 Técnico"}
               </div>
             </div>
+            <button onClick={() => setShowHelp(true)} style={{background:"#1f2937",border:"none",color:"#9ca3af",cursor:"pointer",borderRadius:7,padding:"5px 10px",fontSize:12,fontFamily:"DM Sans,sans-serif"}} title="Ayuda">❓</button>
             <button onClick={handleLogout} style={{background:"#1f2937",border:"none",color:"#9ca3af",cursor:"pointer",borderRadius:7,padding:"5px 10px",fontSize:12,fontFamily:"DM Sans,sans-serif"}}>Salir</button>
           </div>
         </div>
@@ -1325,7 +2016,9 @@ export default function App() {
         <div style={{maxWidth:1200,margin:"0 auto",padding:"24px 20px"}}>
           {section==="clientes"     && <ClientsModule clients={clients} setClients={setClients} reports={reports} toast={toast} currentUser={currentUser} />}
           {section==="notificaciones"&&<NotificationsPanel notifs={notifs} setNotifs={setNotifs} currentUser={currentUser} onSelectReport={id=>{const r=reports.find(x=>x.id===id);if(r){setSelected(r);setSection("reportes");}}} />}
-          {section==="usuarios"&&isAdmin&&<UsersModule profiles={profiles} setProfiles={setProfiles} currentUser={currentUser} toast={toast} />}
+          {section==="miequipo"&&currentUser.role==="empresarial"&&<MiEquipoModule profiles={profiles} currentUser={currentUser} setCurrentUser={setCurrentUser} toast={toast} />}
+          {section==="usuarios"&&currentUser.role==="superadmin"&&<UsersModule profiles={profiles} setProfiles={setProfiles} currentUser={currentUser} toast={toast} />}
+          {section==="membresias"&&currentUser.role==="superadmin"&&<AdminUsersModule profiles={profiles} setProfiles={setProfiles} toast={toast} />}
 
           {section==="reportes"&&(
             <>
@@ -1406,6 +2099,7 @@ export default function App() {
         </div>
       )}
 
+      {showHelp&&<HelpModal currentUser={currentUser} onClose={()=>setShowHelp(false)} />}
       {showNew&&<NewReportModal onClose={()=>setShowNew(false)} onSave={()=>{setShowNew(false);loadAll(currentUser);toast("Reporte creado","success");}} clients={clients} profiles={profiles} currentUser={currentUser} />}
       {selected&&<ReportDetail report={selected} clients={clients} profiles={profiles} currentUser={currentUser} onClose={()=>setSelected(null)} onRefresh={async()=>{const fresh=await fetchReports(currentUser);setReports(fresh);const r=fresh.find(x=>x.id===selected.id);if(r)setSelected(r);}} addNotif={handleAddNotif} toast={toast} />}
     </div>
