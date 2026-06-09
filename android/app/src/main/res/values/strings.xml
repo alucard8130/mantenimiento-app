@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MantPro</string>
+    <string name="title_activity_main">MantPro</string>
+    <string name="package_name">com.jmeb.mantpro</string>
+    <string name="custom_url_scheme">com.jmeb.mantpro</string>
+</resources>
