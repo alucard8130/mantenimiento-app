@@ -1,0 +1,212 @@
+LICENCIA DE USO COMERCIAL
+MantenimientoApp
+================================================================================
+
+Copyright (c) 2026 JMEB. Todos los derechos reservados.
+
+AVISO LEGAL
+
+Este software, MantenimientoApp, incluyendo su código fuente, diseño, estructura,
+documentación y todos los archivos asociados, es propiedad exclusiva de Jaime Martin Estrada Bernabe o JMEB
+("El Titular"). Queda estrictamente prohibida su reproducción, distribución,
+modificación, sublicencia o uso no autorizado en cualquier forma o medio, ya sea
+total o parcial, sin el consentimiento previo y por escrito del Titular.
+
+================================================================================
+1. DEFINICIONES
+================================================================================
+
+1.1 "Software" se refiere a MantenimientoApp, incluyendo código fuente, binarios
+    compilados, interfaces, documentación, bases de datos, diseños y cualquier
+    material relacionado.
+
+1.2 "Titular" se refiere a JMEB, propietario original y desarrollador del Software.
+
+1.3 "Usuario" se refiere a cualquier persona física o moral que acceda, utilice
+    o suscriba el Software mediante los planes de membresía establecidos.
+
+1.4 "Membresía" se refiere a la suscripción de pago que otorga al Usuario el
+    derecho de uso del Software bajo los términos de esta Licencia.
+
+================================================================================
+2. CONCESIÓN DE LICENCIA
+================================================================================
+
+2.1 El Titular otorga al Usuario una licencia de uso limitada, no exclusiva,
+    intransferible y revocable para utilizar el Software, sujeta al pago puntual
+    de la membresía correspondiente y al cumplimiento de los términos aquí
+    establecidos.
+
+2.2 La licencia es válida únicamente durante el periodo de membresía activa.
+    Al cancelarse o vencerse la membresía, la licencia de uso queda revocada
+    automáticamente.
+
+2.3 Esta licencia no implica transferencia de propiedad intelectual al Usuario
+    en ningún sentido.
+
+================================================================================
+3. PLANES DE MEMBRESÍA Y CONDICIONES DE USO
+================================================================================
+
+3.1 PLAN TÉCNICO — $19.99 USD mensuales
+    - Acceso individual al Software
+    - Un (1) usuario técnico activo
+    - Gestión de reportes, clientes y presupuestos propios
+    - Exportación de reportes a PDF
+    - Soporte estándar por correo electrónico
+
+3.2 PLAN EMPRESARIAL — $39.99 USD mensuales
+    - Acceso empresarial al Software
+    - Incluye dos (2) técnicos sin costo adicional
+    - Gestión de equipo de técnicos vinculados
+    - Visibilidad total de reportes del equipo
+    - Técnicos adicionales: $15.99 USD por técnico por mes
+    - Exportación de reportes a PDF
+    - Soporte prioritario por correo electrónico
+
+3.3 PERIODO DE PRUEBA (DEMO)
+    - Todo usuario nuevo recibe treinta (30) días de acceso gratuito
+    - Al vencer el periodo demo sin suscripción activa, el acceso queda
+      suspendido automáticamente hasta completar el proceso de pago
+
+3.4 Los precios están expresados en dólares estadounidenses (USD) y pueden
+    estar sujetos a impuestos locales aplicables según la jurisdicción del Usuario.
+
+3.5 El Titular se reserva el derecho de modificar los precios con un aviso
+    previo de treinta (30) días naturales al Usuario.
+
+================================================================================
+4. RESTRICCIONES DE USO
+================================================================================
+
+El Usuario NO podrá, bajo ninguna circunstancia:
+
+4.1 Copiar, reproducir, distribuir o comercializar el Software o cualquier
+    parte de este sin autorización expresa y por escrito del Titular.
+
+4.2 Modificar, adaptar, traducir, descompilar, desensamblar o realizar
+    ingeniería inversa del Software.
+
+4.3 Sublicenciar, vender, revender, transferir, ceder o explotar comercialmente
+    el Software o el acceso a este en beneficio de terceros.
+
+4.4 Eliminar, alterar u ocultar cualquier aviso de derechos de autor, marca
+    registrada u otros avisos de propiedad contenidos en el Software.
+
+4.5 Utilizar el Software para actividades ilegales, fraudulentas o que violen
+    derechos de terceros.
+
+4.6 Compartir credenciales de acceso con personas no autorizadas o permitir
+    el uso simultáneo de una misma cuenta por múltiples usuarios no registrados.
+
+================================================================================
+5. PROPIEDAD INTELECTUAL
+================================================================================
+
+5.1 El Software, su código fuente, diseño visual, arquitectura, bases de datos,
+    algoritmos, flujos de trabajo, documentación y cualquier elemento derivado
+    son y permanecerán siendo propiedad exclusiva de JMEB.
+
+5.2 Esta Licencia no otorga al Usuario ningún derecho sobre marcas, logotipos,
+    nombres comerciales ni propiedad intelectual del Titular más allá del uso
+    específico descrito en la Sección 2.
+
+5.3 Cualquier mejora, modificación o desarrollo derivado del Software realizado
+    por el Titular será propiedad exclusiva del Titular.
+
+================================================================================
+6. DATOS Y PRIVACIDAD
+================================================================================
+
+6.1 Los datos ingresados por el Usuario en el Software (clientes, reportes,
+    presupuestos, etc.) son propiedad del Usuario y no serán compartidos con
+    terceros sin su consentimiento, salvo requerimiento legal.
+
+6.2 El Titular podrá utilizar datos anonimizados y agregados con fines de
+    mejora del Software, sin identificar al Usuario ni a sus clientes.
+
+6.3 El Titular implementa medidas de seguridad razonables para proteger los
+    datos del Usuario, incluyendo cifrado en tránsito y en reposo.
+
+================================================================================
+7. LIMITACIÓN DE RESPONSABILIDAD
+================================================================================
+
+7.1 El Software se proporciona "tal cual" y "según disponibilidad". El Titular
+    no garantiza que el Software esté libre de errores, interrupciones o
+    vulnerabilidades de seguridad.
+
+7.2 En ningún caso el Titular será responsable por daños indirectos, incidentales,
+    especiales, consecuentes o punitivos, incluyendo pérdida de datos, pérdida
+    de ingresos o interrupción del negocio, derivados del uso o imposibilidad
+    de uso del Software.
+
+7.3 La responsabilidad máxima total del Titular hacia el Usuario no excederá
+    el monto pagado por el Usuario en los últimos tres (3) meses de membresía.
+
+================================================================================
+8. CANCELACIÓN Y TERMINACIÓN
+================================================================================
+
+8.1 El Usuario puede cancelar su membresía en cualquier momento. El acceso
+    permanecerá activo hasta el final del periodo de facturación en curso.
+
+8.2 El Titular podrá suspender o cancelar el acceso del Usuario sin previo
+    aviso en caso de:
+    a) Incumplimiento de cualquier término de esta Licencia
+    b) Uso fraudulento o actividad ilegal
+    c) Falta de pago
+
+8.3 Al terminar la relación contractual, el Usuario deberá cesar todo uso del
+    Software. El Titular no tiene obligación de conservar los datos del Usuario
+    más allá de treinta (30) días posteriores a la cancelación.
+
+================================================================================
+9. MODIFICACIONES A LA LICENCIA
+================================================================================
+
+9.1 El Titular se reserva el derecho de modificar los términos de esta Licencia
+    en cualquier momento. Los cambios serán notificados al Usuario con un mínimo
+    de treinta (30) días de anticipación.
+
+9.2 El uso continuado del Software después de la fecha de entrada en vigor de
+    los cambios constituye la aceptación de los nuevos términos.
+
+================================================================================
+10. LEY APLICABLE Y JURISDICCIÓN
+================================================================================
+
+10.1 Esta Licencia se rige por las leyes de los Estados Unidos Mexicanos.
+
+10.2 Para la resolución de cualquier controversia derivada de esta Licencia,
+     las partes se someten a la jurisdicción de los tribunales competentes de
+     la Ciudad de México, renunciando expresamente a cualquier otro fuero
+     que pudiera corresponderles.
+
+================================================================================
+11. DISPOSICIONES GENERALES
+================================================================================
+
+11.1 Si alguna disposición de esta Licencia fuera declarada inválida o
+     inaplicable, las demás disposiciones permanecerán en plena vigencia.
+
+11.2 La falta de ejercicio por parte del Titular de cualquier derecho previsto
+     en esta Licencia no constituirá renuncia a dicho derecho.
+
+11.3 Esta Licencia constituye el acuerdo completo entre el Titular y el Usuario
+     con respecto al Software y reemplaza cualquier acuerdo previo.
+
+================================================================================
+
+Para consultas sobre licenciamiento comercial, adquisición de licencias
+adicionales o cualquier asunto legal relacionado con este Software, contactar a:
+
+JMEB
+MantenimientoApp
+Correo: adminsoftheron@gesacadmin.com
+Web: https://paginaweb-ro9v.onrender.com
+
+================================================================================
+© 2026 Jaime Martin Estrada Bernabe o JMEB. Todos los derechos reservados.
+MantenimientoApp es una marca comercial de Jaime Martin Estrada Bernabe.
+================================================================================
