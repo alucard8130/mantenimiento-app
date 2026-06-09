@@ -2102,6 +2102,13 @@ export default function App() {
       {showHelp&&<HelpModal currentUser={currentUser} onClose={()=>setShowHelp(false)} />}
       {showNew&&<NewReportModal onClose={()=>setShowNew(false)} onSave={()=>{setShowNew(false);loadAll(currentUser);toast("Reporte creado","success");}} clients={clients} profiles={profiles} currentUser={currentUser} />}
       {selected&&<ReportDetail report={selected} clients={clients} profiles={profiles} currentUser={currentUser} onClose={()=>setSelected(null)} onRefresh={async()=>{const fresh=await fetchReports(currentUser);setReports(fresh);const r=fresh.find(x=>x.id===selected.id);if(r)setSelected(r);}} addNotif={handleAddNotif} toast={toast} />}
+
+      {/* FOOTER */}
+      <div style={{borderTop:"1px solid #0f172a",marginTop:40,padding:"18px 24px",textAlign:"center"}}>
+        <p style={{margin:0,color:"#374151",fontSize:12,fontFamily:"DM Sans,sans-serif"}}>
+          © {new Date().getFullYear()} <span style={{color:"#4b5563",fontWeight:700}}>DevSoftHeron JMEB</span> · Todos los derechos reservados
+        </p>
+      </div>
     </div>
   );
 }
