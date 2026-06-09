@@ -36,9 +36,9 @@ const isSuperEmail = email => email?.toLowerCase() === SUPERUSER.email?.toLowerC
 
 // ── MEMBERSHIP CONFIG ────────────────────────────────────────────────────────
 const PLANS = {
-  tecnico:     { label: "Plan Técnico",     price: 15, currency: "USD", desc: "Acceso individual completo" },
-  empresarial: { label: "Plan Empresarial", price: 30, currency: "USD", desc: "Incluye 2 técnicos gratis" },
-  tecnico_extra: { label: "Técnico Extra",  price: 15, currency: "USD", desc: "Por técnico adicional" },
+  tecnico:     { label: "Plan Técnico",     price: 19.99, currency: "USD", desc: "Acceso individual completo" },
+  empresarial: { label: "Plan Empresarial", price: 39.99, currency: "USD", desc: "Incluye 2 técnicos gratis" },
+  tecnico_extra: { label: "Técnico Extra",  price: 15.99, currency: "USD", desc: "Por técnico adicional" },
 };
 
 function daysLeft(expiresAt) {
@@ -978,7 +978,7 @@ function NewReportModal({ onClose, onSave, clients, profiles, currentUser }) {
 
   return (
     <Modal title="📋 Nuevo Reporte de Mantenimiento" onClose={onClose} wide>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+      <div className="grid-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
         <div>
           <Sel label="Cliente" value={form.clientId} onChange={e=>setForm({...form,clientId:e.target.value})}>
             <option value="">Seleccionar…</option>
@@ -1059,7 +1059,7 @@ function BudgetModal({ report, onClose, onSave }) {
 
   return (
     <Modal title="💰 Editar Presupuesto" onClose={onClose} wide>
-      <div style={{overflowX:"auto",marginBottom:16}}>
+      <div className="budget-table-wrap" style={{overflowX:"auto",marginBottom:16}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
           <thead><tr style={{background:"#1f2937"}}>{["Concepto","Unidad","Cantidad","P. Unitario","Total",""].map(h=><th key={h} style={{padding:"8px 10px",color:"#6b7280",fontWeight:700,textAlign:"left"}}>{h}</th>)}</tr></thead>
           <tbody>{items.map((item,i)=>(
@@ -1132,7 +1132,7 @@ function ScheduleModal({ report, onClose, onSave }) {
               </select>
               <button onClick={()=>setActs(acts.filter((_,j)=>j!==i))} style={{background:"#dc262630",border:"none",borderRadius:8,color:"#f87171",padding:"0 12px",cursor:"pointer"}}>✕</button>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
+            <div className="schedule-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
               <div><label style={{...S.label,fontSize:10}}>INICIO</label><input type="date" value={a.start_date} onChange={e=>upd(i,"start_date",e.target.value)} style={{...S.input,marginTop:4}} /></div>
               <div><label style={{...S.label,fontSize:10}}>FIN</label><input type="date" value={a.end_date} onChange={e=>upd(i,"end_date",e.target.value)} style={{...S.input,marginTop:4}} /></div>
               <div><label style={{...S.label,fontSize:10}}>RESPONSABLE</label><input value={a.responsible||""} onChange={e=>upd(i,"responsible",e.target.value)} placeholder="Equipo / persona" style={{...S.input,marginTop:4}} /></div>
@@ -1213,7 +1213,7 @@ function ReportDetail({ report, clients, profiles, currentUser, onClose, onRefre
 
       <div style={{padding:20}}>
         {/* ACTIONS */}
-        <div style={{display:"flex",gap:8,marginBottom:18,flexWrap:"wrap",background:"#111827",borderRadius:10,padding:12,alignItems:"center"}}>
+        <div className="actions-bar" style={{display:"flex",gap:8,marginBottom:18,flexWrap:"wrap",background:"#111827",borderRadius:10,padding:12,alignItems:"center"}}>
           <Badge status={report.status} />
           <div style={{flex:1}}/>
           {report.status==="borrador"&&(b.total||0)>0&&<Btn variant="p" sm onClick={()=>action("send")}>📤 Enviar al Cliente</Btn>}
@@ -1227,7 +1227,7 @@ function ReportDetail({ report, clients, profiles, currentUser, onClose, onRefre
 
         {tab==="overview"&&(
           <div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:16}}>
+            <div className="grid-4col" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:16}}>
               {[
                 ["Cliente",    client?.name||"—",                client?.email||""],
                 ["Creado por", report.created_by_name||"—",      "Autor del reporte"],
@@ -1387,9 +1387,9 @@ function BlockedScreen({ currentUser, onLogout }) {
   const [extraTecnicos, setExtraTecnicos] = useState(0);
   const role = currentUser.role;
   const isEmpresarial = role === "empresarial";
-  const basePrice = isEmpresarial ? 30 : 15;
-  const extraPrice = extraTecnicos * 15;
-  const totalPrice = basePrice + extraPrice;
+  const basePrice = isEmpresarial ? 39.99 : 19.99;
+  const extraPrice = extraTecnicos * 15.99;
+  const totalPrice = (basePrice + extraPrice).toFixed(2);
 
   async function handleCheckout(plan) {
     setLoading(true);
@@ -1418,7 +1418,7 @@ function BlockedScreen({ currentUser, onLogout }) {
 
           <div style={{ color: "#6b7280", fontSize: 13, marginBottom: 20, lineHeight: 1.8 }}>
             {isEmpresarial ? (
-              <>Plan base $30 USD · incluye 2 técnicos gratis</>
+              <>Plan base $39.99 USD · incluye 2 técnicos gratis</>
             ) : (
               <>Acceso individual completo a todos los módulos</>
             )}
@@ -1431,7 +1431,7 @@ function BlockedScreen({ currentUser, onLogout }) {
                 <button onClick={() => setExtraTecnicos(Math.max(0, extraTecnicos - 1))} style={{ width: 32, height: 32, borderRadius: 8, background: "#374151", border: "none", color: "#f9fafb", fontSize: 18, cursor: "pointer" }}>−</button>
                 <span style={{ color: "#f9fafb", fontWeight: 800, fontSize: 18, minWidth: 24, textAlign: "center" }}>{extraTecnicos}</span>
                 <button onClick={() => setExtraTecnicos(extraTecnicos + 1)} style={{ width: 32, height: 32, borderRadius: 8, background: "#374151", border: "none", color: "#f9fafb", fontSize: 18, cursor: "pointer" }}>+</button>
-                <span style={{ color: "#6b7280", fontSize: 13 }}>× $15 USD = <strong style={{ color: "#a78bfa" }}>${extraPrice} USD</strong></span>
+                <span style={{ color: "#6b7280", fontSize: 13 }}>× $15.99 USD = <strong style={{ color: "#a78bfa" }}>${extraPrice} USD</strong></span>
               </div>
               <p style={{ color: "#4b5563", fontSize: 11, marginTop: 8, marginBottom: 0 }}>Los primeros 2 técnicos ya están incluidos en el plan base.</p>
             </div>
@@ -1535,7 +1535,7 @@ function AdminUsersModule({ profiles, setProfiles, toast }) {
   return (
     <div>
       {/* STATS */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
+      <div className="stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
         {[
           { l: "TOTAL USUARIOS", v: stats.total,     c: "#2563eb", ic: "👤" },
           { l: "EN DEMO",        v: stats.demo,       c: "#60a5fa", ic: "🎉" },
@@ -1997,7 +1997,58 @@ export default function App() {
 
   return (
     <div style={{minHeight:"100vh",background:"#030712",fontFamily:"DM Sans, sans-serif",color:"#f9fafb"}}>
-      <style>{`*{box-sizing:border-box}@keyframes slideIn{from{transform:translateX(20px);opacity:0}to{transform:none;opacity:1}}@keyframes spin{to{transform:rotate(360deg)}}input[type=range]{accent-color:#2563eb}select option{background:#1f2937}`}</style>
+      <style>{`
+        *{box-sizing:border-box}
+        @keyframes slideIn{from{transform:translateX(20px);opacity:0}to{transform:none;opacity:1}}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        input[type=range]{accent-color:#2563eb}
+        select option{background:#1f2937}
+
+        /* ── RESPONSIVE MOBILE ── */
+        @media (max-width: 768px) {
+
+          /* Header nav — scroll horizontal */
+          .nav-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+          /* Stats grid — 2 columnas en móvil */
+          .stats-grid { grid-template-columns: repeat(2,1fr) !important; }
+
+          /* Filtros — stack vertical */
+          .filters-row { flex-direction: column !important; }
+          .filters-row input, .filters-row select { width: 100% !important; min-width: unset !important; }
+
+          /* Tarjetas de reporte — ocultar columna derecha */
+          .report-card-right { display: none !important; }
+
+          /* Modal — pantalla completa */
+          .modal-inner { max-width: 100% !important; max-height: 100vh !important; border-radius: 0 !important; margin: 0 !important; }
+
+          /* Grids de 2 y 3 columnas — a 1 columna */
+          .grid-2col { grid-template-columns: 1fr !important; }
+          .grid-3col { grid-template-columns: 1fr !important; }
+          .grid-4col { grid-template-columns: repeat(2,1fr) !important; }
+
+          /* Tabla presupuesto — scroll horizontal */
+          .budget-table-wrap { overflow-x: auto !important; }
+
+          /* Cronograma grid — stack */
+          .schedule-grid { grid-template-columns: 1fr !important; }
+
+          /* Header usuario — ocultar nombre en pantalla muy pequeña */
+          .user-name { display: none; }
+
+          /* Padding general reducido */
+          .main-content { padding: 12px !important; }
+
+          /* Botones en fila — wrap */
+          .actions-bar { flex-wrap: wrap !important; gap: 6px !important; }
+        }
+
+        @media (max-width: 480px) {
+          .stats-grid { grid-template-columns: repeat(2,1fr) !important; }
+          .grid-4col  { grid-template-columns: 1fr 1fr !important; }
+        }
+      `}</style>
       <Toast toasts={toasts} />
 
       {/* HEADER */}
@@ -2007,7 +2058,7 @@ export default function App() {
             <div style={{width:34,height:34,background:"linear-gradient(135deg,#2563eb,#1d4ed8)",borderRadius:9,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>🔧</div>
             <span style={{fontWeight:800,fontSize:15,color:"#f9fafb"}}>MantenimientoApp</span>
           </div>
-          <div style={{display:"flex",gap:2}}>
+          <div className="nav-bar" style={{display:"flex",gap:2}}>
             {NAV.map(n=>(
               <button key={n.id} onClick={()=>setSection(n.id)} style={{background:section===n.id?"#1f2937":"none",border:"none",color:section===n.id?"#2563eb":"#6b7280",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontWeight:700,fontSize:13,fontFamily:"DM Sans,sans-serif",display:"flex",alignItems:"center",gap:5}}>
                 {n.icon} {n.label}
@@ -2035,7 +2086,7 @@ export default function App() {
           <Spinner/> Cargando datos…
         </div>
       ) : (
-        <div style={{maxWidth:1200,margin:"0 auto",padding:"24px 20px"}}>
+        <div className="main-content" style={{maxWidth:1200,margin:"0 auto",padding:"24px 20px"}}>
           {section==="clientes"     && <ClientsModule clients={clients} setClients={setClients} reports={reports} toast={toast} currentUser={currentUser} />}
           {section==="notificaciones"&&<NotificationsPanel notifs={notifs} setNotifs={setNotifs} currentUser={currentUser} onSelectReport={id=>{const r=reports.find(x=>x.id===id);if(r){setSelected(r);setSection("reportes");}}} />}
           {section==="miequipo"&&currentUser.role==="empresarial"&&<MiEquipoModule profiles={profiles} currentUser={currentUser} setCurrentUser={setCurrentUser} toast={toast} />}
@@ -2045,7 +2096,7 @@ export default function App() {
           {section==="reportes"&&(
             <>
               {/* STATS */}
-              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:24}}>
+              <div className="stats-grid" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:24}}>
                 {[
                   {l:"TOTAL REPORTES",v:stats.total,ic:"📋",c:"#2563eb"},
                   {l:"EN PROCESO",v:stats.activos,ic:"🔧",c:"#f59e0b"},
@@ -2060,7 +2111,7 @@ export default function App() {
               </div>
 
               {/* FILTERS */}
-              <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+              <div className="filters-row" style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
                 <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍  Buscar por folio, título o cliente…" style={{...S.input,flex:1,minWidth:200}} />
                 <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={{...S.input,width:"auto"}}>
                   <option value="todos">Todos los estados</option>
@@ -2099,7 +2150,7 @@ export default function App() {
                             {r.findings?.filter(f=>f.severity==="alta").length>0&&<span style={{color:"#f87171"}}>🔴 {r.findings.filter(f=>f.severity==="alta").length} críticos</span>}
                           </div>
                         </div>
-                        <div style={{display:"flex",gap:12,alignItems:"center",flexShrink:0}}>
+                        <div className="report-card-right" style={{display:"flex",gap:12,alignItems:"center",flexShrink:0}}>
                           {(r.budget?.total||0)>0&&<div style={{textAlign:"right"}}>
                             <div style={{color:"#6b7280",fontSize:10}}>Presupuesto</div>
                             <div style={{color:"#4ade80",fontWeight:800,fontSize:15}}>{fmtMXN(r.budget.total)}</div>
@@ -2128,7 +2179,7 @@ export default function App() {
       {/* FOOTER */}
       <div style={{borderTop:"1px solid #0f172a",marginTop:40,padding:"18px 24px",textAlign:"center"}}>
         <p style={{margin:0,color:"#374151",fontSize:12,fontFamily:"DM Sans,sans-serif"}}>
-          © {new Date().getFullYear()} <span style={{color:"#4b5563",fontWeight:700}}>DevSoftHeron Jaime Martin Estrada Bernabe</span> · Todos los derechos reservados
+          © {new Date().getFullYear()} <span style={{color:"#4b5563",fontWeight:700}}>DevSoft Heron by JMEB</span> · Todos los derechos reservados
         </p>
       </div>
     </div>
