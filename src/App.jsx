@@ -249,8 +249,13 @@ async function deleteProfile(id) {
 }
 
 // ── CLIENTS ───────────────────────────────────────────────────────────────────
-async function fetchClients() {
-  const { data } = await supabase.from("clients").select("*").order("name");
+async function fetchClients(user) {
+  let query = supabase.from("clients").select("*").order("name");
+  // Técnico: solo sus clientes
+  if (user && user.role === "tecnico") {
+    query = query.eq("created_by", user.id);
+  }
+  const { data } = await query;
   return data || [];
 }
 async function upsertClient(client) {
@@ -263,11 +268,19 @@ async function deleteClient(id) {
 }
 
 // ── REPORTS ───────────────────────────────────────────────────────────────────
-async function fetchReports() {
-  const { data } = await supabase
+async function fetchReports(user) {
+  let query = supabase
     .from("reports")
     .select(`*, clients(name,email,contact,rfc), findings(*), photos(*), budgets(*, budget_items(*)), schedule(*), timeline(*)`)
     .order("created_at", { ascending: false });
+
+  // Técnico: solo sus reportes (creados o asignados)
+  if (user && user.role === "tecnico") {
+    query = query.or(`created_by.eq.${user.id},assigned_to.eq.${user.id}`);
+  }
+  // Admin y superadmin: todos los reportes (sin filtro)
+
+  const { data } = await query;
   return (data || []).map(normalizeReport);
 }
 
@@ -611,7 +624,7 @@ function UsersModule({ profiles, setProfiles, currentUser, toast }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // CLIENTS MODULE
 // ══════════════════════════════════════════════════════════════════════════════
-function ClientsModule({ clients, setClients, reports, toast }) {
+function ClientsModule({ clients, setClients, reports, toast, currentUser }) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState("");
@@ -622,7 +635,7 @@ function ClientsModule({ clients, setClients, reports, toast }) {
 
   async function save() {
     if (!form.name) return toast("Ingresa el nombre del cliente","error");
-    const payload = editing ? { id: editing, ...form } : { ...form };
+    const payload = editing ? { id: editing, ...form } : { ...form, created_by: currentUser.id === SUPERUSER.id ? null : currentUser.id };
     const { data, error } = await upsertClient(payload);
     if (error) return toast("Error al guardar","error");
     if (editing) setClients(clients.map(c => c.id===editing?data:c));
@@ -1198,7 +1211,7 @@ export default function App() {
   async function loadAll(user) {
     setLoading(true);
     try {
-      const [p, c, r] = await Promise.all([fetchProfiles(), fetchClients(), fetchReports()]);
+      const [p, c, r] = await Promise.all([fetchProfiles(), fetchClients(user), fetchReports(user)]);
       console.log("DEBUG perfiles cargados:", p);
       setProfiles(p.filter(x => !isSuperEmail(x.email)));
       setClients(c);
@@ -1310,7 +1323,7 @@ export default function App() {
         </div>
       ) : (
         <div style={{maxWidth:1200,margin:"0 auto",padding:"24px 20px"}}>
-          {section==="clientes"     && <ClientsModule clients={clients} setClients={setClients} reports={reports} toast={toast} />}
+          {section==="clientes"     && <ClientsModule clients={clients} setClients={setClients} reports={reports} toast={toast} currentUser={currentUser} />}
           {section==="notificaciones"&&<NotificationsPanel notifs={notifs} setNotifs={setNotifs} currentUser={currentUser} onSelectReport={id=>{const r=reports.find(x=>x.id===id);if(r){setSelected(r);setSection("reportes");}}} />}
           {section==="usuarios"&&isAdmin&&<UsersModule profiles={profiles} setProfiles={setProfiles} currentUser={currentUser} toast={toast} />}
 
@@ -1394,8 +1407,7 @@ export default function App() {
       )}
 
       {showNew&&<NewReportModal onClose={()=>setShowNew(false)} onSave={()=>{setShowNew(false);loadAll(currentUser);toast("Reporte creado","success");}} clients={clients} profiles={profiles} currentUser={currentUser} />}
-      {selected&&<ReportDetail report={selected} clients={clients} profiles={profiles} currentUser={currentUser} onClose={()=>setSelected(null)} onRefresh={async()=>{const fresh=await fetchReports();setReports(fresh);const r=fresh.find(x=>x.id===selected.id);if(r)setSelected(r);}} addNotif={handleAddNotif} toast={toast} />}
+      {selected&&<ReportDetail report={selected} clients={clients} profiles={profiles} currentUser={currentUser} onClose={()=>setSelected(null)} onRefresh={async()=>{const fresh=await fetchReports(currentUser);setReports(fresh);const r=fresh.find(x=>x.id===selected.id);if(r)setSelected(r);}} addNotif={handleAddNotif} toast={toast} />}
     </div>
   );
 }
-
