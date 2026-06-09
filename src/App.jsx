@@ -42,9 +42,9 @@ const isSuperEmail = email => email?.toLowerCase() === SUPERUSER.email?.toLowerC
 
 // ── MEMBERSHIP CONFIG ────────────────────────────────────────────────────────
 const PLANS = {
-  tecnico:     { label: "Plan Técnico",     price: 19.99, currency: "USD", desc: "Acceso individual completo" },
-  empresarial: { label: "Plan Empresarial", price: 39.99, currency: "USD", desc: "Incluye 2 técnicos gratis" },
-  tecnico_extra: { label: "Técnico Extra",  price: 15.99, currency: "USD", desc: "Por técnico adicional" },
+  tecnico:     { label: "Plan Técnico",     price: 15, currency: "USD", desc: "Acceso individual completo" },
+  empresarial: { label: "Plan Empresarial", price: 30, currency: "USD", desc: "Incluye 2 técnicos gratis" },
+  tecnico_extra: { label: "Técnico Extra",  price: 15, currency: "USD", desc: "Por técnico adicional" },
 };
 
 function daysLeft(expiresAt) {
@@ -1439,9 +1439,9 @@ function BlockedScreen({ currentUser, onLogout, lang }) {
   const [extraTecnicos, setExtraTecnicos] = useState(0);
   const role = currentUser.role;
   const isEmpresarial = role === "empresarial";
-  const basePrice = isEmpresarial ? 39.99 : 19.99;
-  const extraPrice = extraTecnicos * 15.99;
-  const totalPrice = (basePrice + extraPrice).toFixed(2);
+  const basePrice = isEmpresarial ? 30 : 15;
+  const extraPrice = extraTecnicos * 15;
+  const totalPrice = basePrice + extraPrice;
 
   async function handleCheckout(plan) {
     setLoading(true);
@@ -1470,7 +1470,7 @@ function BlockedScreen({ currentUser, onLogout, lang }) {
 
           <div style={{ color: "#6b7280", fontSize: 13, marginBottom: 20, lineHeight: 1.8 }}>
             {isEmpresarial ? (
-              <>Plan base $39.99 USD · incluye 2 técnicos gratis</>
+              <>Plan base $30 USD · incluye 2 técnicos gratis</>
             ) : (
               <>Acceso individual completo a todos los módulos</>
             )}
@@ -1483,7 +1483,7 @@ function BlockedScreen({ currentUser, onLogout, lang }) {
                 <button onClick={() => setExtraTecnicos(Math.max(0, extraTecnicos - 1))} style={{ width: 32, height: 32, borderRadius: 8, background: "#374151", border: "none", color: "#f9fafb", fontSize: 18, cursor: "pointer" }}>−</button>
                 <span style={{ color: "#f9fafb", fontWeight: 800, fontSize: 18, minWidth: 24, textAlign: "center" }}>{extraTecnicos}</span>
                 <button onClick={() => setExtraTecnicos(extraTecnicos + 1)} style={{ width: 32, height: 32, borderRadius: 8, background: "#374151", border: "none", color: "#f9fafb", fontSize: 18, cursor: "pointer" }}>+</button>
-                <span style={{ color: "#6b7280", fontSize: 13 }}>× $15.99 USD = <strong style={{ color: "#a78bfa" }}>${extraPrice} USD</strong></span>
+                <span style={{ color: "#6b7280", fontSize: 13 }}>× $15 USD = <strong style={{ color: "#a78bfa" }}>${extraPrice} USD</strong></span>
               </div>
               <p style={{ color: "#4b5563", fontSize: 11, marginTop: 8, marginBottom: 0 }}>Los primeros 2 técnicos ya están incluidos en el plan base.</p>
             </div>
@@ -2118,6 +2118,7 @@ export default function App() {
         </div>
       </div>
 
+      {currentUser.role !== "superadmin" && <DemoBanner currentUser={currentUser} lang={lang} />}
       {loading ? (
         <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"60vh",gap:16,color:"#6b7280"}}>
           <Spinner/> {T("loading")}
@@ -2216,7 +2217,7 @@ export default function App() {
       {/* FOOTER */}
       <div style={{borderTop:"1px solid #0f172a",marginTop:40,padding:"18px 24px",textAlign:"center"}}>
         <p style={{margin:0,color:"#374151",fontSize:12,fontFamily:"DM Sans,sans-serif"}}>
-          © {new Date().getFullYear()} <span style={{color:"#4b5563",fontWeight:700}}>DevSoft Heron or JMEB</span> · MantPro by JMEB · Todos los derechos reservados
+          © {new Date().getFullYear()} <span style={{color:"#4b5563",fontWeight:700}}>JMEB</span> · MantPro · Todos los derechos reservados
         </p>
       </div>
     </div>
