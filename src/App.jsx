@@ -305,15 +305,32 @@ async function updateReportStatus(reportId, status, eventText, userName) {
 }
 
 async function saveBudget(reportId, budget, items) {
-  // Upsert budget
-  const { data: b } = await supabase.from("budgets")
-    .upsert({ report_id: reportId, subtotal: budget.subtotal, iva: budget.iva, total: budget.total, advance_pct: budget.advance_pct, advance_paid: budget.advance_paid ?? false, final_paid: budget.final_paid ?? false })
-    .select().single();
-  if (!b) return;
-  // Replace items
-  await supabase.from("budget_items").delete().eq("budget_id", b.id);
+  // Buscar presupuesto existente por report_id
+  const { data: existing } = await supabase
+    .from("budgets").select("id").eq("report_id", reportId).single();
+
+  let budgetId;
+  if (existing?.id) {
+    // Actualizar el existente
+    await supabase.from("budgets")
+      .update({ subtotal: budget.subtotal, iva: budget.iva, total: budget.total, advance_pct: budget.advance_pct, advance_paid: budget.advance_paid ?? false, final_paid: budget.final_paid ?? false })
+      .eq("id", existing.id);
+    budgetId = existing.id;
+  } else {
+    // Crear nuevo
+    const { data: newB } = await supabase.from("budgets")
+      .insert({ report_id: reportId, subtotal: budget.subtotal, iva: budget.iva, total: budget.total, advance_pct: budget.advance_pct, advance_paid: budget.advance_paid ?? false, final_paid: budget.final_paid ?? false })
+      .select().single();
+    if (!newB) return;
+    budgetId = newB.id;
+  }
+
+  // Reemplazar todas las partidas
+  await supabase.from("budget_items").delete().eq("budget_id", budgetId);
   if (items.length) {
-    await supabase.from("budget_items").insert(items.map((it, i) => ({ budget_id: b.id, concept: it.concept, unit: it.unit, qty: it.qty, price: it.price, total: it.total, sort_order: i })));
+    await supabase.from("budget_items").insert(
+      items.map((it, i) => ({ budget_id: budgetId, concept: it.concept, unit: it.unit, qty: it.qty, price: it.price, total: it.total, sort_order: i }))
+    );
   }
 }
 
@@ -1381,3 +1398,4 @@ export default function App() {
     </div>
   );
 }
+
