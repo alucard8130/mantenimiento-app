@@ -540,7 +540,7 @@ function AuthScreen({ onLogin }) {
           Revisa tu correo
         </h1>
         <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 28, lineHeight: 1.7 }}>
-          Tu cuenta fue creada exitosamente. Te enviamos un enlace de activación a:
+{form.lang==="en"?"Your account was created. We sent an activation link to:":"Tu cuenta fue creada exitosamente. Te enviamos un enlace de activación a:"}
         </p>
         <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: 12, padding: "18px 24px", marginBottom: 28 }}>
           <div style={{ color: "#60a5fa", fontWeight: 800, fontSize: 16, marginBottom: 6 }}>{registered}</div>
@@ -559,7 +559,7 @@ function AuthScreen({ onLogin }) {
         </div>
         <button onClick={() => { setRegistered(null); setMode("login"); setForm({ name:"", email:"", password:"", confirm:"", role:"tecnico" }); }}
           style={{ background: "linear-gradient(135deg,#2563eb,#1d4ed8)", border: "none", borderRadius: 10, padding: "12px 32px", color: "#fff", fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "DM Sans,sans-serif" }}>
-          Ir a Iniciar Sesión
+          {form.lang==="en"?"Go to Sign In":"Ir a Iniciar Sesión"}
         </button>
       </div>
     </div>
@@ -573,32 +573,38 @@ function AuthScreen({ onLogin }) {
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <img src="/icon-only.svg" alt="MantPro" style={{ width: 72, height: 72, margin: "0 auto 16px", display: "block", borderRadius: 18 }} onError={e => { e.target.style.display="none"; }} />
           <h1 style={{ color: "#f9fafb", fontSize: 28, fontWeight: 800, margin: 0, letterSpacing: -0.5, fontFamily: "DM Sans, sans-serif" }}>MantPro</h1>
-          <p style={{ color: "#4b5563", fontSize: 13, marginTop: 6 }}>{form.lang === "en" ? "Professional maintenance management" : "Gestión profesional de mantenimiento"}</p>
+          <p style={{ color: "#4b5563", fontSize: 20, marginTop: 6 }}>{form.lang === "en" ? "Professional maintenance management" : "Gestión profesional de mantenimiento"}</p>
         </div>
         <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: 20, padding: 32, boxShadow: "0 28px 70px #000a" }}>
+          {/* Language selector — visible in both tabs */}
+          <div style={{display:"flex",gap:8,marginBottom:16}}>
+            {[["es","🇲🇽 Español"],["en","🇺🇸 English"]].map(([val,lbl])=>(
+              <div key={val} onClick={()=>f("lang",val)} style={{flex:1,background:form.lang===val?"#1e3a5f":"#1f2937",border:`1.5px solid ${form.lang===val?"#2563eb":"#374151"}`,borderRadius:8,padding:"8px 10px",cursor:"pointer",textAlign:"center",fontSize:13,fontWeight:700,color:form.lang===val?"#60a5fa":"#9ca3af"}}>{lbl}</div>
+            ))}
+          </div>
           <div style={{ display: "flex", background: "#1f2937", borderRadius: 12, padding: 4, marginBottom: 28 }}>
-            {[["login","Iniciar Sesión"],["register","Crear Cuenta"]].map(([k,l]) => (
+            {[["login", form.lang==="en"?"Sign In":"Iniciar Sesión"],["register", form.lang==="en"?"Create Account":"Crear Cuenta"]].map(([k,l]) => (
               <button key={k} onClick={() => { setMode(k); setError(""); }} style={{ flex: 1, background: mode===k?"#2563eb":"none", border: "none", borderRadius: 9, padding: "9px", color: mode===k?"#fff":"#6b7280", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "DM Sans, sans-serif", transition: "all .2s" }}>{l}</button>
             ))}
           </div>
           {mode === "login" ? (
             <>
-              <div style={{ marginBottom: 14 }}><label style={S.label}>Correo</label><input value={form.email} onChange={e => f("email",e.target.value)} placeholder="tu@correo.com" type="email" style={iStyle} onKeyDown={e => e.key==="Enter"&&handleLogin()} /></div>
-              <div style={{ marginBottom: 22 }}><label style={S.label}>Contraseña</label><input value={form.password} onChange={e => f("password",e.target.value)} placeholder="••••••••" type="password" style={iStyle} onKeyDown={e => e.key==="Enter"&&handleLogin()} /></div>
+              <div style={{ marginBottom: 14 }}><label style={S.label}>{form.lang==="en"?"EMAIL":"CORREO"}</label><input value={form.email} onChange={e => f("email",e.target.value)} placeholder="you@email.com" type="email" style={iStyle} onKeyDown={e => e.key==="Enter"&&handleLogin()} /></div>
+              <div style={{ marginBottom: 22 }}><label style={S.label}>{form.lang==="en"?"PASSWORD":"CONTRASEÑA"}</label><input value={form.password} onChange={e => f("password",e.target.value)} placeholder="••••••••" type="password" style={iStyle} onKeyDown={e => e.key==="Enter"&&handleLogin()} /></div>
               {error && <div style={{ background:"#450a0a",border:"1px solid #f8717140",borderRadius:8,padding:"10px 14px",color:"#f87171",fontSize:13,marginBottom:16 }}>{error}</div>}
-              <button onClick={handleLogin} disabled={loading} style={{ width:"100%",background:"linear-gradient(135deg,#2563eb,#1d4ed8)",border:"none",borderRadius:10,padding:13,color:"#fff",fontWeight:800,fontSize:15,cursor:loading?"not-allowed":"pointer",opacity:loading?.7:1,fontFamily:"DM Sans,sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:10 }}>{loading?<><Spinner/>Verificando…</>:"Iniciar Sesión"}</button>
-              <p style={{ textAlign:"center",color:"#4b5563",fontSize:13,marginTop:18,marginBottom:0 }}>¿No tienes cuenta? <span onClick={()=>{setMode("register");setError("");}} style={{color:"#2563eb",cursor:"pointer",fontWeight:700}}>Regístrate</span></p>
+              <button onClick={handleLogin} disabled={loading} style={{ width:"100%",background:"linear-gradient(135deg,#2563eb,#1d4ed8)",border:"none",borderRadius:10,padding:13,color:"#fff",fontWeight:800,fontSize:15,cursor:loading?"not-allowed":"pointer",opacity:loading?.7:1,fontFamily:"DM Sans,sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:10 }}>{loading?<><Spinner/>{form.lang==="en"?"Verifying…":"Verificando…"}</>:form.lang==="en"?"Sign In":"Iniciar Sesión"}</button>
+              <p style={{ textAlign:"center",color:"#4b5563",fontSize:13,marginTop:18,marginBottom:0 }}>{form.lang==="en"?"Don't have an account?":"¿No tienes cuenta?"} <span onClick={()=>{setMode("register");setError("");}} style={{color:"#2563eb",cursor:"pointer",fontWeight:700}}>{form.lang==="en"?"Sign up":"Regístrate"}</span></p>
             </>
           ) : (
             <>
-              <div style={{ marginBottom: 14 }}><label style={S.label}>Nombre completo</label><input value={form.name} onChange={e => f("name",e.target.value)} placeholder="Juan Pérez" style={iStyle} /></div>
-              <div style={{ marginBottom: 14 }}><label style={S.label}>Correo</label><input value={form.email} onChange={e => f("email",e.target.value)} placeholder="tu@correo.com" type="email" style={iStyle} /></div>
+              <div style={{ marginBottom: 14 }}><label style={S.label}>{form.lang==="en"?"FULL NAME":"NOMBRE COMPLETO"}</label><input value={form.name} onChange={e => f("name",e.target.value)} placeholder="Jhon Smith" style={iStyle} /></div>
+              <div style={{ marginBottom: 14 }}><label style={S.label}>{form.lang==="en"?"EMAIL":"CORREO"}</label><input value={form.email} onChange={e => f("email",e.target.value)} placeholder="you@email.com" type="email" style={iStyle} /></div>
               <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14 }}>
-                <div><label style={S.label}>Contraseña</label><input value={form.password} onChange={e=>f("password",e.target.value)} placeholder="Mín. 6 car." type="password" style={iStyle}/></div>
-                <div><label style={S.label}>Confirmar</label><input value={form.confirm} onChange={e=>f("confirm",e.target.value)} placeholder="Repite" type="password" style={iStyle}/></div>
+                <div><label style={S.label}>Password</label><input value={form.password} onChange={e=>f("password",e.target.value)} placeholder="Min. 6 char." type="password" style={iStyle}/></div>
+                <div><label style={S.label}>Confirm</label><input value={form.confirm} onChange={e=>f("confirm",e.target.value)} placeholder="Confirm" type="password" style={iStyle}/></div>
               </div>
               <div style={{ marginBottom: 22 }}>
-                <label style={S.label}>Perfil</label>
+                <label style={S.label}>{form.lang==="en"?"PROFILE":"PERFIL"}</label>
                 <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:8 }}>
                   {[["empresarial","🏢 " + (form.lang==="en"?"Business":"Empresarial"),form.lang==="en"?"Manage multiple technicians":"Gestiona múltiples técnicos"],["tecnico","🔧 " + (form.lang==="en"?"Technician":"Técnico"),form.lang==="en"?"Own reports and clients":"Reportes y clientes propios"]].map(([val,lbl,desc]) => (
                     <div key={val} onClick={()=>f("role",val)} style={{ background:form.role===val?"#1e3a5f":"#1f2937",border:`1.5px solid ${form.role===val?"#2563eb":"#374151"}`,borderRadius:10,padding:"10px 12px",cursor:"pointer" }}>
@@ -606,21 +612,26 @@ function AuthScreen({ onLogin }) {
                       <div style={{ fontSize:11,color:"#6b7280",marginTop:2 }}>{desc}</div>
                     </div>
                   ))}
-                  <div style={{ marginTop:8, gridColumn:"1/-1" }}>
-                    <label style={{...S.label,fontSize:10}}>{form.lang==="en"?"LANGUAGE":"IDIOMA"}</label>
-                    <div style={{display:"flex",gap:8,marginTop:6}}>
-                      {[["es","🇲🇽 Español"],["en","🇺🇸 English"]].map(([val,lbl])=>(
-                        <div key={val} onClick={()=>f("lang",val)} style={{flex:1,background:form.lang===val?"#1e3a5f":"#1f2937",border:`1.5px solid ${form.lang===val?"#2563eb":"#374151"}`,borderRadius:8,padding:"8px 10px",cursor:"pointer",textAlign:"center",fontSize:13,fontWeight:700,color:form.lang===val?"#60a5fa":"#9ca3af"}}>{lbl}</div>
-                      ))}
-                    </div>
-                  </div>
+
                 </div>
               </div>
               {error && <div style={{ background:"#450a0a",border:"1px solid #f8717140",borderRadius:8,padding:"10px 14px",color:"#f87171",fontSize:13,marginBottom:16 }}>{error}</div>}
-              <button onClick={handleRegister} disabled={loading} style={{ width:"100%",background:"linear-gradient(135deg,#2563eb,#1d4ed8)",border:"none",borderRadius:10,padding:13,color:"#fff",fontWeight:800,fontSize:15,cursor:loading?"not-allowed":"pointer",opacity:loading?.7:1,fontFamily:"DM Sans,sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:10 }}>{loading?<><Spinner/>Creando cuenta…</>:"Crear mi cuenta"}</button>
-              <p style={{ textAlign:"center",color:"#4b5563",fontSize:13,marginTop:18,marginBottom:0 }}>¿Ya tienes cuenta? <span onClick={()=>{setMode("login");setError("");}} style={{color:"#2563eb",cursor:"pointer",fontWeight:700}}>Inicia sesión</span></p>
+              <button onClick={handleRegister} disabled={loading} style={{ width:"100%",background:"linear-gradient(135deg,#2563eb,#1d4ed8)",border:"none",borderRadius:10,padding:13,color:"#fff",fontWeight:800,fontSize:15,cursor:loading?"not-allowed":"pointer",opacity:loading?.7:1,fontFamily:"DM Sans,sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:10 }}>{loading?<><Spinner/>{form.lang==="en"?"Creating account…":"Creando cuenta…"}</>:form.lang==="en"?"Create my account":"Crear mi cuenta"}</button>
+              <p style={{ textAlign:"center",color:"#4b5563",fontSize:13,marginTop:18,marginBottom:0 }}>{form.lang==="en"?"Already have an account?":"¿Ya tienes cuenta?"} <span onClick={()=>{setMode("login");setError("");}} style={{color:"#2563eb",cursor:"pointer",fontWeight:700}}>{form.lang==="en"?"Sign in":"Inicia sesión"}</span></p>
             </>
           )}
+          {/* Enlace comercial */}
+          <div style={{marginTop:20,paddingTop:16,borderTop:"1px solid #1f2937",textAlign:"center"}}>
+            <p style={{color:"#4b5563",fontSize:12,margin:"0 0 6px"}}>
+              {form.lang==="en"
+                ? "Need custom software for your business?"
+                : "¿Necesitas desarrollo de software a la medida?"}
+            </p>
+            <a href="https://paginaweb-ro9v.onrender.com" target="_blank" rel="noopener noreferrer"
+              style={{color:"#2563eb",fontWeight:700,fontSize:13,textDecoration:"none",display:"inline-flex",alignItems:"center",gap:6}}>
+              {form.lang==="en" ? "Visit our website →" : "Visita nuestro sitio web →"}
+            </a>
+          </div>
         </div>
       </div>
     </div>
@@ -2091,7 +2102,6 @@ export default function App() {
         <div style={{maxWidth:1200,margin:"0 auto",padding:"0 12px",display:"flex",alignItems:"center",gap:8,height:54}}>
           {/* LOGO */}
           <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-            
             <span className="logo-text-hide" style={{fontWeight:800,fontSize:14,color:"#f9fafb",whiteSpace:"nowrap"}}><img src="/logo-dark.png" height="36" alt="MantPro" /></span>
           </div>
           {/* NAV */}
@@ -2217,7 +2227,7 @@ export default function App() {
       {/* FOOTER */}
       <div style={{borderTop:"1px solid #0f172a",marginTop:40,padding:"18px 24px",textAlign:"center"}}>
         <p style={{margin:0,color:"#374151",fontSize:12,fontFamily:"DM Sans,sans-serif"}}>
-          © {new Date().getFullYear()} <span style={{color:"#4b5563",fontWeight:700}}>DevSoft Heron </span> · MantPro by Jaime Martin Estrada Bernabe · Todos los derechos reservados
+          © {new Date().getFullYear()} <span style={{color:"#4b5563",fontWeight:700}}>DevSoft Heron JMEB</span> · MantPro by Jaime Martin Estrada Bernabe · Todos los derechos reservados
         </p>
       </div>
     </div>
