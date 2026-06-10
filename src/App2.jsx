@@ -1,10 +1,10 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
-import { t } from "./i18n";
+// Capacitor — detect native environment
 import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { Capacitor } from "@capacitor/core";
-
-const isNative = () => { try { return Capacitor.isNativePlatform(); } catch(e) { return false; } };
+const isNative = () => Capacitor.isNativePlatform();
+import { createClient } from "@supabase/supabase-js";
+import { t } from "./i18n";
 
 // Global translation helper — uses window.__lang set at login
 function T(key) {
@@ -46,9 +46,9 @@ const isSuperEmail = email => email?.toLowerCase() === SUPERUSER.email?.toLowerC
 
 // ── MEMBERSHIP CONFIG ────────────────────────────────────────────────────────
 const PLANS = {
-  tecnico:     { label: "Plan Técnico",     price: 19.99, currency: "USD", desc: "Acceso individual completo" },
-  empresarial: { label: "Plan Empresarial", price: 39.99, currency: "USD", desc: "Incluye 2 técnicos gratis" },
-  tecnico_extra: { label: "Técnico Extra",  price: 15.99, currency: "USD", desc: "Por técnico adicional" },
+  tecnico:     { label: "Plan Técnico",     price: 15, currency: "USD", desc: "Acceso individual completo" },
+  empresarial: { label: "Plan Empresarial", price: 30, currency: "USD", desc: "Incluye 2 técnicos gratis" },
+  tecnico_extra: { label: "Técnico Extra",  price: 15, currency: "USD", desc: "Por técnico adicional" },
 };
 
 function daysLeft(expiresAt) {
@@ -577,7 +577,7 @@ function AuthScreen({ onLogin }) {
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <img src="/icon-only.svg" alt="MantPro" style={{ width: 72, height: 72, margin: "0 auto 16px", display: "block", borderRadius: 18 }} onError={e => { e.target.style.display="none"; }} />
           <h1 style={{ color: "#f9fafb", fontSize: 28, fontWeight: 800, margin: 0, letterSpacing: -0.5, fontFamily: "DM Sans, sans-serif" }}>MantPro</h1>
-          <p style={{ color: "#4b5563", fontSize: 20, marginTop: 6 }}>{form.lang === "en" ? "Professional maintenance management" : "Gestión profesional de mantenimiento"}</p>
+          <p style={{ color: "#4b5563", fontSize: 13, marginTop: 6 }}>{form.lang === "en" ? "Professional maintenance management" : "Gestión profesional de mantenimiento"}</p>
         </div>
         <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: 20, padding: 32, boxShadow: "0 28px 70px #000a" }}>
           {/* Language selector — visible in both tabs */}
@@ -1481,9 +1481,9 @@ function BlockedScreen({ currentUser, onLogout, lang }) {
   const [extraTecnicos, setExtraTecnicos] = useState(0);
   const role = currentUser.role;
   const isEmpresarial = role === "empresarial";
-  const basePrice = isEmpresarial ? 39.99 : 19.99;
-  const extraPrice = extraTecnicos * 15.99;
-  const totalPrice = (basePrice + extraPrice).toFixed(2);
+  const basePrice = isEmpresarial ? 30 : 15;
+  const extraPrice = extraTecnicos * 15;
+  const totalPrice = basePrice + extraPrice;
 
   async function handleCheckout(plan) {
     setLoading(true);
@@ -1512,7 +1512,7 @@ function BlockedScreen({ currentUser, onLogout, lang }) {
 
           <div style={{ color: "#6b7280", fontSize: 13, marginBottom: 20, lineHeight: 1.8 }}>
             {isEmpresarial ? (
-              <>Plan base $39.99 USD · incluye 2 técnicos gratis</>
+              <>Plan base $30 USD · incluye 2 técnicos gratis</>
             ) : (
               <>Acceso individual completo a todos los módulos</>
             )}
@@ -1525,7 +1525,7 @@ function BlockedScreen({ currentUser, onLogout, lang }) {
                 <button onClick={() => setExtraTecnicos(Math.max(0, extraTecnicos - 1))} style={{ width: 32, height: 32, borderRadius: 8, background: "#374151", border: "none", color: "#f9fafb", fontSize: 18, cursor: "pointer" }}>−</button>
                 <span style={{ color: "#f9fafb", fontWeight: 800, fontSize: 18, minWidth: 24, textAlign: "center" }}>{extraTecnicos}</span>
                 <button onClick={() => setExtraTecnicos(extraTecnicos + 1)} style={{ width: 32, height: 32, borderRadius: 8, background: "#374151", border: "none", color: "#f9fafb", fontSize: 18, cursor: "pointer" }}>+</button>
-                <span style={{ color: "#6b7280", fontSize: 13 }}>× $15.99 USD = <strong style={{ color: "#a78bfa" }}>${extraPrice} USD</strong></span>
+                <span style={{ color: "#6b7280", fontSize: 13 }}>× $15 USD = <strong style={{ color: "#a78bfa" }}>${extraPrice} USD</strong></span>
               </div>
               <p style={{ color: "#4b5563", fontSize: 11, marginTop: 8, marginBottom: 0 }}>Los primeros 2 técnicos ya están incluidos en el plan base.</p>
             </div>
@@ -2259,7 +2259,7 @@ export default function App() {
       {/* FOOTER */}
       <div style={{borderTop:"1px solid #0f172a",marginTop:40,padding:"18px 24px",textAlign:"center"}}>
         <p style={{margin:0,color:"#374151",fontSize:12,fontFamily:"DM Sans,sans-serif"}}>
-          © {new Date().getFullYear()} <span style={{color:"#4b5563",fontWeight:700}}>DevSoft Heron</span> · MantPro by Jaime Martin Estrada Bernabe · Todos los derechos reservados
+          © {new Date().getFullYear()} <span style={{color:"#4b5563",fontWeight:700}}>JMEB</span> · MantPro · Todos los derechos reservados
         </p>
       </div>
     </div>

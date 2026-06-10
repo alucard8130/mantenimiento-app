@@ -1,10 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { t } from "./i18n";
-import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
-import { Capacitor } from "@capacitor/core";
-
-const isNative = () => { try { return Capacitor.isNativePlatform(); } catch(e) { return false; } };
 
 // Global translation helper — uses window.__lang set at login
 function T(key) {
@@ -593,7 +589,7 @@ function AuthScreen({ onLogin }) {
           </div>
           {mode === "login" ? (
             <>
-              <div style={{ marginBottom: 14 }}><label style={S.label}>{form.lang==="en"?"EMAIL":"CORREO"}</label><input value={form.email} onChange={e => f("email",e.target.value)} placeholder="tu@correo.com" type="email" style={iStyle} onKeyDown={e => e.key==="Enter"&&handleLogin()} /></div>
+              <div style={{ marginBottom: 14 }}><label style={S.label}>{form.lang==="en"?"EMAIL":"CORREO"}</label><input value={form.email} onChange={e => f("email",e.target.value)} placeholder="you@email.com" type="email" style={iStyle} onKeyDown={e => e.key==="Enter"&&handleLogin()} /></div>
               <div style={{ marginBottom: 22 }}><label style={S.label}>{form.lang==="en"?"PASSWORD":"CONTRASEÑA"}</label><input value={form.password} onChange={e => f("password",e.target.value)} placeholder="••••••••" type="password" style={iStyle} onKeyDown={e => e.key==="Enter"&&handleLogin()} /></div>
               {error && <div style={{ background:"#450a0a",border:"1px solid #f8717140",borderRadius:8,padding:"10px 14px",color:"#f87171",fontSize:13,marginBottom:16 }}>{error}</div>}
               <button onClick={handleLogin} disabled={loading} style={{ width:"100%",background:"linear-gradient(135deg,#2563eb,#1d4ed8)",border:"none",borderRadius:10,padding:13,color:"#fff",fontWeight:800,fontSize:15,cursor:loading?"not-allowed":"pointer",opacity:loading?.7:1,fontFamily:"DM Sans,sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:10 }}>{loading?<><Spinner/>{form.lang==="en"?"Verifying…":"Verificando…"}</>:form.lang==="en"?"Sign In":"Iniciar Sesión"}</button>
@@ -601,11 +597,11 @@ function AuthScreen({ onLogin }) {
             </>
           ) : (
             <>
-              <div style={{ marginBottom: 14 }}><label style={S.label}>{form.lang==="en"?"FULL NAME":"NOMBRE COMPLETO"}</label><input value={form.name} onChange={e => f("name",e.target.value)} placeholder="Juan Pérez" style={iStyle} /></div>
-              <div style={{ marginBottom: 14 }}><label style={S.label}>{form.lang==="en"?"EMAIL":"CORREO"}</label><input value={form.email} onChange={e => f("email",e.target.value)} placeholder="tu@correo.com" type="email" style={iStyle} /></div>
+              <div style={{ marginBottom: 14 }}><label style={S.label}>{form.lang==="en"?"FULL NAME":"NOMBRE COMPLETO"}</label><input value={form.name} onChange={e => f("name",e.target.value)} placeholder="Jhon Smith" style={iStyle} /></div>
+              <div style={{ marginBottom: 14 }}><label style={S.label}>{form.lang==="en"?"EMAIL":"CORREO"}</label><input value={form.email} onChange={e => f("email",e.target.value)} placeholder="you@email.com" type="email" style={iStyle} /></div>
               <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14 }}>
-                <div><label style={S.label}>Contraseña</label><input value={form.password} onChange={e=>f("password",e.target.value)} placeholder="Mín. 6 car." type="password" style={iStyle}/></div>
-                <div><label style={S.label}>Confirmar</label><input value={form.confirm} onChange={e=>f("confirm",e.target.value)} placeholder="Repite" type="password" style={iStyle}/></div>
+                <div><label style={S.label}>Password</label><input value={form.password} onChange={e=>f("password",e.target.value)} placeholder="Min. 6 char." type="password" style={iStyle}/></div>
+                <div><label style={S.label}>Confirm</label><input value={form.confirm} onChange={e=>f("confirm",e.target.value)} placeholder="Confirm" type="password" style={iStyle}/></div>
               </div>
               <div style={{ marginBottom: 22 }}>
                 <label style={S.label}>{form.lang==="en"?"PROFILE":"PERFIL"}</label>
@@ -624,7 +620,6 @@ function AuthScreen({ onLogin }) {
               <p style={{ textAlign:"center",color:"#4b5563",fontSize:13,marginTop:18,marginBottom:0 }}>{form.lang==="en"?"Already have an account?":"¿Ya tienes cuenta?"} <span onClick={()=>{setMode("login");setError("");}} style={{color:"#2563eb",cursor:"pointer",fontWeight:700}}>{form.lang==="en"?"Sign in":"Inicia sesión"}</span></p>
             </>
           )}
-
           {/* Enlace comercial */}
           <div style={{marginTop:20,paddingTop:16,borderTop:"1px solid #1f2937",textAlign:"center"}}>
             <p style={{color:"#4b5563",fontSize:12,margin:"0 0 6px"}}>
@@ -976,32 +971,6 @@ function NewReportModal({ onClose, onSave, clients, profiles, currentUser, lang 
   const [saving, setSaving] = useState(false);
   const fileRef = useRef();
 
-  async function handlePhotoNative() {
-    if (isNative()) {
-      // Running on Android/iOS — show picker: Camera or Gallery
-      try {
-        const image = await Camera.getPhoto({
-          quality: 90,
-          allowEditing: false,
-          resultType: CameraResultType.DataUrl,
-          source: CameraSource.Prompt, // shows "Camera" or "Photos" choice
-          promptLabelHeader: "Foto",
-          promptLabelCancel: "Cancelar",
-          promptLabelPhoto: "Elegir de galería",
-          promptLabelPicture: "Tomar foto",
-        });
-        const blob = await fetch(image.dataUrl).then(r => r.blob());
-        const file = new File([blob], `photo_${genId()}.jpg`, { type: "image/jpeg" });
-        setPhotos(p => [...p, { id: genId(), url: image.dataUrl, name: file.name, file }]);
-      } catch(e) {
-        if (e?.message && !e.message.includes("cancel")) console.error("Camera error:", e);
-      }
-    } else {
-      // Running on web — use file picker
-      fileRef.current.click();
-    }
-  }
-
   function handlePhoto(e) {
     Array.from(e.target.files).forEach(f => {
       const previewUrl = URL.createObjectURL(f);
@@ -1094,7 +1063,7 @@ function NewReportModal({ onClose, onSave, clients, profiles, currentUser, lang 
                   <button onClick={()=>setPhotos(photos.filter(x=>x.id!==p.id))} style={{position:"absolute",top:-6,right:-6,background:"#dc2626",border:"none",borderRadius:99,color:"#fff",width:18,height:18,cursor:"pointer",fontSize:9,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
                 </div>
               ))}
-              <button onClick={handlePhotoNative} style={{width:64,height:64,border:"2px dashed #374151",borderRadius:8,background:"none",color:"#4b5563",cursor:"pointer",fontSize:22}}>+</button>
+              <button onClick={()=>fileRef.current.click()} style={{width:64,height:64,border:"2px dashed #374151",borderRadius:8,background:"none",color:"#4b5563",cursor:"pointer",fontSize:22}}>+</button>
             </div>
           </div>
         </div>
@@ -2133,8 +2102,7 @@ export default function App() {
         <div style={{maxWidth:1200,margin:"0 auto",padding:"0 12px",display:"flex",alignItems:"center",gap:8,height:54}}>
           {/* LOGO */}
           <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-            <div style={{width:32,height:32,background:"linear-gradient(135deg,#2563eb,#1d4ed8)",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>🔧</div>
-            <span className="logo-text-hide" style={{fontWeight:800,fontSize:14,color:"#f9fafb",whiteSpace:"nowrap"}}>MantPro</span>
+            <span className="logo-text-hide" style={{fontWeight:800,fontSize:14,color:"#f9fafb",whiteSpace:"nowrap"}}><img src="/logo-dark.png" height="36" alt="MantPro" /></span>
           </div>
           {/* NAV */}
           <div className="nav-bar" style={{display:"flex",gap:1,flex:1,overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
@@ -2259,7 +2227,7 @@ export default function App() {
       {/* FOOTER */}
       <div style={{borderTop:"1px solid #0f172a",marginTop:40,padding:"18px 24px",textAlign:"center"}}>
         <p style={{margin:0,color:"#374151",fontSize:12,fontFamily:"DM Sans,sans-serif"}}>
-          © {new Date().getFullYear()} <span style={{color:"#4b5563",fontWeight:700}}>DevSoft Heron</span> · MantPro by Jaime Martin Estrada Bernabe · Todos los derechos reservados
+          © {new Date().getFullYear()} <span style={{color:"#4b5563",fontWeight:700}}>DevSoft Heron JMEB</span> · MantPro by Jaime Martin Estrada Bernabe · Todos los derechos reservados
         </p>
       </div>
     </div>
