@@ -75,7 +75,7 @@ export const translations = {
     totalReports: "TOTAL REPORTES",
     inProcess: "EN PROCESO",
     toAuthorize: "POR AUTORIZAR",
-    billed: "FACTURADO",
+    billed: "INGRESOS",
     client: "Cliente",
     createdBy: "Creado por",
     assignedTo: "Asignado a",

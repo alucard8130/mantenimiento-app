@@ -47,9 +47,9 @@ const isSuperEmail = email => email?.toLowerCase() === SUPERUSER.email?.toLowerC
 
 // ── MEMBERSHIP CONFIG ────────────────────────────────────────────────────────
 const PLANS = {
-  tecnico:     { label: "Plan Técnico",     price: 19.99, currency: "USD", desc: "Acceso individual completo" },
-  empresarial: { label: "Plan Empresarial", price: 39.99, currency: "USD", desc: "Incluye 2 técnicos gratis" },
-  tecnico_extra: { label: "Técnico Extra",  price: 15.99, currency: "USD", desc: "Por técnico adicional" },
+  tecnico:     { label: "Plan Técnico",     price: 15, currency: "USD", desc: "Acceso individual completo" },
+  empresarial: { label: "Plan Empresarial", price: 30, currency: "USD", desc: "Incluye 2 técnicos gratis" },
+  tecnico_extra: { label: "Técnico Extra",  price: 15, currency: "USD", desc: "Por técnico adicional" },
 };
 
 function daysLeft(expiresAt) {
@@ -650,7 +650,7 @@ function AuthScreen({ onLogin }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // MI EQUIPO MODULE (solo para empresarial)
 // ══════════════════════════════════════════════════════════════════════════════
-function MiEquipoModule({ profiles, currentUser, setCurrentUser, toast ,lang="es" }) {
+function MiEquipoModule({ profiles, currentUser, setCurrentUser, toast }) {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -694,20 +694,20 @@ function MiEquipoModule({ profiles, currentUser, setCurrentUser, toast ,lang="es
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#f9fafb" }}>{t(lang,'myTeamTitle')}</h2>
-        <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: 13 }}>{members.length} {t(lang,'teamMembers')}</p>
+        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#f9fafb" }}>Mi Equipo</h2>
+        <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: 13 }}>{members.length} técnicos vinculados a tu cuenta</p>
       </div>
 
       {/* Agregar técnico */}
       <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: 12, padding: 18, marginBottom: 20 }}>
-        <label style={S.label}>{t(lang,'addTechnic')}</label>
+        <label style={S.label}>Agregar técnico existente</label>
         <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
           <select value={selectedId} onChange={e => setSelectedId(e.target.value)} style={{ ...S.input, flex: 1 }}>
-            <option value="">{t(lang,'selectTechnic')}</option>
+            <option value="">Seleccionar técnico…</option>
             {available.map(p => <option key={p.id} value={p.id}>{p.name} — {p.email}</option>)}
           </select>
           <Btn variant="s" onClick={add} disabled={adding || !selectedId}>
-            {adding ? <><Spinner />{t(lang,'adding')}</> : t(lang,'add')}
+            {adding ? <><Spinner /> Agregando…</> : "+ Agregar"}
           </Btn>
         </div>
         {available.length === 0 && (
@@ -723,8 +723,8 @@ function MiEquipoModule({ profiles, currentUser, setCurrentUser, toast ,lang="es
       ) : members.length === 0 ? (
         <div style={{ textAlign: "center", padding: "50px 0", color: "#4b5563" }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>👥</div>
-          <div style={{ fontWeight: 700, color: "#6b7280" }}>{t(lang,'noTeam')}</div>
-          <p style={{ fontSize: 13, marginTop: 8 }}>{t(lang,'noTeamDesc')}</p>
+          <div style={{ fontWeight: 700, color: "#6b7280" }}>Aún no tienes técnicos vinculados</div>
+          <p style={{ fontSize: 13, marginTop: 8 }}>Agrega técnicos para ver sus reportes y asignarles trabajo</p>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -737,7 +737,7 @@ function MiEquipoModule({ profiles, currentUser, setCurrentUser, toast ,lang="es
                   <div style={{ fontWeight: 700, color: "#f9fafb", fontSize: 14 }}>{p.name}</div>
                   <div style={{ color: "#6b7280", fontSize: 12, marginTop: 2 }}>{p.email} · 🔧 Técnico</div>
                 </div>
-                <div style={{ fontSize: 11, color: "#4b5563" }}>{t(lang,'since')} {fmtDate(m.created_at?.slice(0, 10))}</div>
+                <div style={{ fontSize: 11, color: "#4b5563" }}>Desde {fmtDate(m.created_at?.slice(0, 10))}</div>
                 <Btn variant="d" sm onClick={() => remove(m.tecnico_id)}>Desvincular</Btn>
               </div>
             );
@@ -748,11 +748,11 @@ function MiEquipoModule({ profiles, currentUser, setCurrentUser, toast ,lang="es
   );
 }
 
-function UsersModule({ profiles, setProfiles, currentUser, toast , lang="es" }) {
+function UsersModule({ profiles, setProfiles, currentUser, toast }) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "tecnico" });
-  const ROLE_CFG = { superadmin:{label:"⭐ Super Admin",color:"#f59e0b",bg:"#451a03"}, empresarial:{label:`🏢 ${t(lang,'roleEmpresarial')}`,color:"#a78bfa",bg:"#2e1065"}, tecnico:{label:`🔧 ${t(lang,'roleTecnico')}`,color:"#60a5fa",bg:"#1e3a5f"} };
+  const ROLE_CFG = { superadmin:{label:"⭐ Super Admin",color:"#f59e0b",bg:"#451a03"}, empresarial:{label:"🏢 Empresarial",color:"#a78bfa",bg:"#2e1065"}, tecnico:{label:"🔧 Técnico",color:"#60a5fa",bg:"#1e3a5f"} };
 
   function openEdit(u) {
     if (u.protected) return toast("El superusuario no se puede editar","error");
@@ -831,7 +831,7 @@ function UsersModule({ profiles, setProfiles, currentUser, toast , lang="es" }) 
                   {isMe && <span style={{fontSize:10,fontWeight:700,color:"#4ade80",background:"#14532d",padding:"2px 8px",borderRadius:99}}>Tú</span>}
                   {u.protected && <span style={{fontSize:10,fontWeight:700,color:"#f59e0b",background:"#451a03",padding:"2px 8px",borderRadius:99}}>🔒 Protegido</span>}
                 </div>
-                <div style={{fontSize:12,color:"#6b7280"}}>{u.email} {u.created_at && `· Desde ${fmtDate(u.created_at.slice(0,10))}`}</div>
+                <div style={{fontSize:12,color:"#6b7280"}}>{u.email} {u.created_at && `· Desde ${fmtDate(u.created_at)}`}</div>
               </div>
               <div style={{display:"flex",gap:8}}>
                 <Btn variant="g" sm onClick={()=>openEdit(u)} style={{opacity:u.protected?.35:1}}>✏️</Btn>
@@ -1062,8 +1062,7 @@ function NewReportModal({ onClose, onSave, clients, profiles, currentUser, lang 
     : profiles.filter(p => p.role === "tecnico" && (currentUser.members || []).includes(p.id));
 
   return (
-    
-    <Modal title={`📋 ${t(lang,'reportTitle')}`} onClose={onClose} wide>
+    <Modal title="📋 Nuevo Reporte de Mantenimiento" onClose={onClose} wide>
       <div className="grid-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
         <div>
           <Sel label={t(lang,'client')} value={form.clientId} onChange={e=>setForm({...form,clientId:e.target.value})}>
@@ -1105,14 +1104,14 @@ function NewReportModal({ onClose, onSave, clients, profiles, currentUser, lang 
         <label style={S.label}>{t(lang,'findings')}</label>
         {findings.map((f,i)=>(
           <div key={f.id} style={{display:"flex",gap:8,marginBottom:8}}>
-            <input value={f.description} onChange={e=>setFindings(findings.map((x,j)=>j===i?{...x,description:e.target.value}:x))} placeholder={`${t(lang,'findingPlaceholder')} ${i+1}`} style={{...S.input,flex:1}} />
+            <input value={f.description} onChange={e=>setFindings(findings.map((x,j)=>j===i?{...x,description:e.target.value}:x))} placeholder={`Hallazgo ${i+1}`} style={{...S.input,flex:1}} />
             <select value={f.severity} onChange={e=>setFindings(findings.map((x,j)=>j===i?{...x,severity:e.target.value}:x))} style={{...S.input,width:90}}>
-              <option value="baja">{t(lang,'severityLow')}</option><option value="media">{t(lang,'severityMed')}</option><option value="alta">{t(lang,'severityHigh')}</option>
+              <option value="baja">Baja</option><option value="media">Media</option><option value="alta">Alta</option>
             </select>
             <button onClick={()=>setFindings(findings.filter((_,j)=>j!==i))} style={{background:"#dc262630",border:"none",borderRadius:8,color:"#f87171",padding:"0 12px",cursor:"pointer"}}>✕</button>
           </div>
         ))}
-        <Btn variant="g" sm onClick={()=>setFindings([...findings,{id:genId(),description:"",severity:"media"}])}>{t(lang,'addFinding')}</Btn>
+        <Btn variant="g" sm onClick={()=>setFindings([...findings,{id:genId(),description:"",severity:"media"}])}>+ Agregar hallazgo</Btn>
       </div>
       <div style={{display:"flex",gap:10,justifyContent:"flex-end",paddingTop:16,borderTop:"1px solid #1f2937",marginTop:16}}>
         <Btn variant="g" onClick={onClose}>{t(lang,'cancel')}</Btn>
@@ -1483,9 +1482,9 @@ function BlockedScreen({ currentUser, onLogout, lang }) {
   const [extraTecnicos, setExtraTecnicos] = useState(0);
   const role = currentUser.role;
   const isEmpresarial = role === "empresarial";
-  const basePrice = isEmpresarial ? 39.99 : 19.99;
-  const extraPrice = extraTecnicos * 15.99;
-  const totalPrice = (basePrice + extraPrice).toFixed(2);
+  const basePrice = isEmpresarial ? 30 : 15;
+  const extraPrice = extraTecnicos * 15;
+  const totalPrice = basePrice + extraPrice;
 
   async function handleCheckout(plan) {
     setLoading(true);
@@ -1505,7 +1504,7 @@ function BlockedScreen({ currentUser, onLogout, lang }) {
 
         <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: 18, padding: 28, marginBottom: 20 }}>
           <div style={{ display: "inline-block", background: isEmpresarial ? "#2e1065" : "#1e3a5f", border: `1px solid ${isEmpresarial ? "#a78bfa" : "#60a5fa"}50`, borderRadius: 8, padding: "4px 14px", fontSize: 12, fontWeight: 700, color: isEmpresarial ? "#a78bfa" : "#60a5fa", marginBottom: 16 }}>
-            {isEmpresarial ? `🏢 ${t(lang,'roleEmpresarial')}` : `🔧 ${t(lang,'roleTecnico')}`}
+            {isEmpresarial ? "🏢 Plan Empresarial" : "🔧 Plan Técnico"}
           </div>
 
           <div style={{ fontSize: 48, fontWeight: 800, color: "#f9fafb", marginBottom: 4 }}>
@@ -1514,7 +1513,7 @@ function BlockedScreen({ currentUser, onLogout, lang }) {
 
           <div style={{ color: "#6b7280", fontSize: 13, marginBottom: 20, lineHeight: 1.8 }}>
             {isEmpresarial ? (
-              <>Plan base $39.99 USD · incluye 2 técnicos gratis</>
+              <>Plan base $30 USD · incluye 2 técnicos gratis</>
             ) : (
               <>Acceso individual completo a todos los módulos</>
             )}
@@ -1527,7 +1526,7 @@ function BlockedScreen({ currentUser, onLogout, lang }) {
                 <button onClick={() => setExtraTecnicos(Math.max(0, extraTecnicos - 1))} style={{ width: 32, height: 32, borderRadius: 8, background: "#374151", border: "none", color: "#f9fafb", fontSize: 18, cursor: "pointer" }}>−</button>
                 <span style={{ color: "#f9fafb", fontWeight: 800, fontSize: 18, minWidth: 24, textAlign: "center" }}>{extraTecnicos}</span>
                 <button onClick={() => setExtraTecnicos(extraTecnicos + 1)} style={{ width: 32, height: 32, borderRadius: 8, background: "#374151", border: "none", color: "#f9fafb", fontSize: 18, cursor: "pointer" }}>+</button>
-                <span style={{ color: "#6b7280", fontSize: 13 }}>× $15.99 USD = <strong style={{ color: "#a78bfa" }}>${extraPrice} USD</strong></span>
+                <span style={{ color: "#6b7280", fontSize: 13 }}>× $15 USD = <strong style={{ color: "#a78bfa" }}>${extraPrice} USD</strong></span>
               </div>
               <p style={{ color: "#4b5563", fontSize: 11, marginTop: 8, marginBottom: 0 }}>Los primeros 2 técnicos ya están incluidos en el plan base.</p>
             </div>
@@ -2021,33 +2020,6 @@ export default function App() {
     await loadAll(freshProfile);
   }
 
-  // Restore session when returning from Stripe (back button or redirect)
-  useEffect(() => {
-    async function restoreSession() {
-      const params = new URLSearchParams(window.location.search);
-      const payment = params.get("payment");
-      // Clean URL regardless
-      if (payment) window.history.replaceState({}, "", window.location.pathname);
-
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
-        if (profile) {
-          setCurrentUser(profile);
-          await loadAll(profile);
-          if (payment === "success") {
-            // Refresh profile to get updated subscription status
-            setTimeout(async () => {
-              const { data: fresh } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
-              if (fresh) setCurrentUser(fresh);
-            }, 2000);
-          }
-        }
-      }
-    }
-    restoreSession();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
   async function handleLogout() {
     if (currentUser?.id !== SUPERUSER.id) await sbSignOut();
     setCurrentUser(null);
@@ -2167,7 +2139,8 @@ export default function App() {
         <div style={{maxWidth:1200,margin:"0 auto",padding:"0 12px",display:"flex",alignItems:"center",gap:8,height:54}}>
           {/* LOGO */}
           <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-            <span className="logo-text-hide" style={{fontWeight:800,fontSize:14,color:"#f9fafb",whiteSpace:"nowrap"}}><img src="logo-dark.png" alt="MantPro" style={{width:80,height:"auto"}} /></span>
+            <div style={{width:32,height:32,background:"linear-gradient(135deg,#2563eb,#1d4ed8)",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>🔧</div>
+            <span className="logo-text-hide" style={{fontWeight:800,fontSize:14,color:"#f9fafb",whiteSpace:"nowrap"}}>MantPro</span>
           </div>
           {/* NAV */}
           <div className="nav-bar" style={{display:"flex",gap:1,flex:1,overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
@@ -2184,7 +2157,7 @@ export default function App() {
             <div className="user-name" style={{fontSize:12,lineHeight:1.3}}>
               <div style={{fontWeight:700,color:"#f9fafb"}}>{currentUser.name}</div>
               <div style={{fontSize:10,color:currentUser.role==="superadmin"?"#f59e0b":currentUser.role==="empresarial"?"#a78bfa":"#6b7280"}}>
-                {currentUser.role==="superadmin"?"⭐ Super Admin":currentUser.role==="empresarial"?`🏢 ${t(lang,'roleEmpresarial')}`:`🔧 ${t(lang,'roleTecnico')}`}
+                {currentUser.role==="superadmin"?"⭐ Super Admin":currentUser.role==="empresarial"?"🏢 Empresarial":"🔧 Técnico"}
               </div>
             </div>
             <button onClick={()=>setShowHelp(true)} style={{background:"#1f2937",border:"none",color:"#9ca3af",cursor:"pointer",borderRadius:7,width:32,height:32,fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}} title="Ayuda">❓</button>
@@ -2292,7 +2265,7 @@ export default function App() {
       {/* FOOTER */}
       <div style={{borderTop:"1px solid #0f172a",marginTop:40,padding:"18px 24px",textAlign:"center"}}>
         <p style={{margin:0,color:"#374151",fontSize:12,fontFamily:"DM Sans,sans-serif"}}>
-          © {new Date().getFullYear()} <span style={{color:"#4b5563",fontWeight:700}}>DevSoft Heron</span> · MantPro by Jaime Martin Estrada Bernabe · Todos los derechos reservados
+          © {new Date().getFullYear()} <span style={{color:"#4b5563",fontWeight:700}}>JMEB</span> · MantPro · Todos los derechos reservados
         </p>
       </div>
     </div>
