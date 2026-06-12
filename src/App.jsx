@@ -279,6 +279,343 @@ function exportPDF(report, client, assignedUser, lang = "es") {
   setTimeout(() => w.print(), 600);
 }
 
+
+// ── PDF SHARED STYLES ────────────────────────────────────────────────────────
+const PDF_BASE_STYLE = `
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box} body{font-family:'DM Sans',sans-serif;background:#fff;color:#111827;font-size:13px}
+  .page{max-width:800px;margin:0 auto;padding:40px}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:20px;border-bottom:2px solid #1d4ed8}
+  .logo{display:flex;align-items:center;gap:12px} .logo-icon{width:40px;height:40px;background:#1d4ed8;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px}
+  .logo-text h1{font-size:17px;font-weight:800} .logo-text p{font-size:11px;color:#6b7280;margin-top:2px}
+  .folio{text-align:right} .folio .num{font-size:20px;font-weight:800;color:#1d4ed8;font-family:monospace} .folio .date{font-size:11px;color:#6b7280;margin-top:3px}
+  .sec-title{font-size:10px;font-weight:800;color:#1d4ed8;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid #e5e7eb}
+  .section{margin-bottom:22px}
+  table{width:100%;border-collapse:collapse} th{background:#1d4ed8;color:#fff;padding:8px 12px;font-size:11px;font-weight:700;text-align:left} th:last-child,td:last-child{text-align:right}
+  td{padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#374151} tr:nth-child(even) td{background:#fafafa}
+  .footer{margin-top:28px;padding-top:16px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#9ca3af}
+  .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700}
+`;
+
+function pdfHeader(report, client, subtitle) {
+  return `
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon">🔧</div>
+      <div class="logo-text"><h1>MantPro</h1><p>Professional Maintenance Management</p></div>
+    </div>
+    <div class="folio">
+      <div class="num">${report.folio}</div>
+      <div class="date">${subtitle}</div>
+      <div class="date">${fmtDate(report.date)}</div>
+      <div class="date">Generated: ${fmtDate(today())}</div>
+    </div>
+  </div>
+  <div class="section">
+    <table style="margin-bottom:0"><tbody>
+      <tr><td style="color:#9ca3af;width:120px">Project</td><td><strong>${report.title}</strong></td><td style="color:#9ca3af;width:100px">Client</td><td><strong>${client?.name||"—"}</strong></td></tr>
+      <tr><td style="color:#9ca3af">Assigned to</td><td>${report.assigned_to_name||"—"}</td><td style="color:#9ca3af">Status</td><td>${report.status}</td></tr>
+    </tbody></table>
+  </div>`;
+}
+
+function openPDF(title, folio, html) {
+  const w = window.open("", "_blank");
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title} ${folio}</title><style>${PDF_BASE_STYLE}</style></head><body><div class="page">${html}</div></body></html>`);
+  w.document.close();
+  setTimeout(() => w.print(), 600);
+}
+
+// ── PDF: SCHEDULE ─────────────────────────────────────────────────────────────
+function exportPDFSchedule(report, client, lang = "es") {
+  const L = (es, en) => lang === "en" ? en : es;
+  const acts = report.schedule || [];
+  const overall = acts.length ? Math.round(acts.reduce((s,a)=>s+(a.progress||0),0)/acts.length) : 0;
+  const statusColor = s => s==="completada"?"#15803d":s==="en_curso"?"#b45309":"#374151";
+  const statusLabel = s => lang==="en" ? (s==="completada"?"Done":s==="en_curso"?"In Progress":"Pending") : (s==="completada"?"Completada":s==="en_curso"?"En Curso":"Pendiente");
+
+  const html = `
+    ${pdfHeader(report, client, L("Cronograma de Actividades","Activity Schedule"))}
+    <div class="section">
+      <div class="sec-title">${L("Resumen","Summary")}</div>
+      <div style="display:flex;gap:20px;margin-bottom:12px">
+        <div style="background:#f9fafb;border-radius:8px;padding:10px 16px;flex:1;text-align:center">
+          <div style="font-size:10px;color:#9ca3af;font-weight:700;letter-spacing:.5px">${L("ACTIVIDADES","ACTIVITIES")}</div>
+          <div style="font-size:22px;font-weight:800;color:#1d4ed8">${acts.length}</div>
+        </div>
+        <div style="background:#f9fafb;border-radius:8px;padding:10px 16px;flex:1;text-align:center">
+          <div style="font-size:10px;color:#9ca3af;font-weight:700;letter-spacing:.5px">${L("COMPLETADAS","COMPLETED")}</div>
+          <div style="font-size:22px;font-weight:800;color:#15803d">${acts.filter(a=>a.status==="completada").length}</div>
+        </div>
+        <div style="background:#f9fafb;border-radius:8px;padding:10px 16px;flex:1;text-align:center">
+          <div style="font-size:10px;color:#9ca3af;font-weight:700;letter-spacing:.5px">${L("AVANCE GENERAL","OVERALL PROGRESS")}</div>
+          <div style="font-size:22px;font-weight:800;color:#1d4ed8">${overall}%</div>
+        </div>
+      </div>
+      <div style="background:#e5e7eb;border-radius:99px;height:8px;overflow:hidden;margin-bottom:16px">
+        <div style="width:${overall}%;background:#1d4ed8;height:100%;border-radius:99px"></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="sec-title">${L("Actividades","Activities")}</div>
+      ${acts.length === 0 ? `<p style="color:#9ca3af">${L("Sin actividades registradas","No activities registered")}</p>` : `
+      <table>
+        <thead><tr>
+          <th>#</th>
+          <th>${L("Actividad","Activity")}</th>
+          <th>${L("Inicio","Start")}</th>
+          <th>${L("Fin","End")}</th>
+          <th>${L("Responsable","Responsible")}</th>
+          <th>${L("Estado","Status")}</th>
+          <th>${L("Avance","Progress")}</th>
+        </tr></thead>
+        <tbody>${acts.map((a,i)=>`
+          <tr>
+            <td style="color:#9ca3af">${i+1}</td>
+            <td><strong>${a.activity}</strong></td>
+            <td>${fmtDate(a.start_date)}</td>
+            <td>${fmtDate(a.end_date)}</td>
+            <td>${a.responsible||"—"}</td>
+            <td><span class="badge" style="background:${statusColor(a.status)}20;color:${statusColor(a.status)}">${statusLabel(a.status)}</span></td>
+            <td style="text-align:right;font-weight:700;color:#1d4ed8">${a.progress||0}%</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>`}
+    </div>
+    <div class="footer"><span>MantPro · ${today()}</span><span>${L("Cronograma de Actividades","Activity Schedule")} — ${report.folio}</span></div>`;
+
+  openPDF(L("Cronograma","Schedule"), report.folio, html);
+}
+
+// ── PDF: MATERIALS ────────────────────────────────────────────────────────────
+function exportPDFMaterials(report, client, assignments, lang = "es") {
+  const L = (es, en) => lang === "en" ? en : es;
+  const total = assignments.reduce((s,a) => s + (a.total_cost||0), 0);
+
+  const html = `
+    ${pdfHeader(report, client, L("Materiales Utilizados","Materials Used"))}
+    <div class="section">
+      <div class="sec-title">${L("Lista de Materiales","Material List")}</div>
+      ${assignments.length === 0 ? `<p style="color:#9ca3af">${L("Sin materiales asignados","No materials assigned")}</p>` : `
+      <table>
+        <thead><tr>
+          <th>#</th>
+          <th>${L("Material","Material")}</th>
+          <th>${L("Unidad","Unit")}</th>
+          <th>${L("Cantidad","Quantity")}</th>
+          <th>${L("Precio Unitario","Unit Price")}</th>
+          <th>${L("Total","Total")}</th>
+        </tr></thead>
+        <tbody>${assignments.map((a,i)=>`
+          <tr>
+            <td style="color:#9ca3af">${i+1}</td>
+            <td><strong>${a.materials?.name||"—"}</strong></td>
+            <td>${a.materials?.unit||"—"}</td>
+            <td>${a.quantity}</td>
+            <td>${fmtMXN(a.unit_price)}</td>
+            <td><strong>${fmtMXN(a.total_cost)}</strong></td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+      <div style="display:flex;justify-content:flex-end;margin-top:12px">
+        <div style="background:#f9fafb;border-radius:8px;padding:12px 20px;min-width:220px;border:1px solid #e5e7eb">
+          <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800;color:#1d4ed8">
+            <span>${L("TOTAL MATERIALES","TOTAL MATERIALS")}</span>
+            <span>${fmtMXN(total)}</span>
+          </div>
+        </div>
+      </div>`}
+    </div>
+    <div class="footer"><span>MantPro · ${today()}</span><span>${L("Materiales Utilizados","Materials Used")} — ${report.folio}</span></div>`;
+
+  openPDF(L("Materiales","Materials"), report.folio, html);
+}
+
+// ── PDF: LABOR COSTS ──────────────────────────────────────────────────────────
+function exportPDFLabor(report, client, laborCosts, lang = "es") {
+  const L = (es, en) => lang === "en" ? en : es;
+  const total = laborCosts.reduce((s,c) => s + (c.amount||0), 0);
+
+  const html = `
+    ${pdfHeader(report, client, L("Mano de Obra","Labor Costs"))}
+    <div class="section">
+      <div class="sec-title">${L("Conceptos de Mano de Obra","Labor Cost Concepts")}</div>
+      ${laborCosts.length === 0 ? `<p style="color:#9ca3af">${L("Sin costos registrados","No costs registered")}</p>` : `
+      <table>
+        <thead><tr>
+          <th>#</th>
+          <th>${L("Concepto","Concept")}</th>
+          <th>${L("Notas","Notes")}</th>
+          <th>${L("Fecha","Date")}</th>
+          <th>${L("Monto","Amount")}</th>
+        </tr></thead>
+        <tbody>${laborCosts.map((c,i)=>`
+          <tr>
+            <td style="color:#9ca3af">${i+1}</td>
+            <td><strong>${c.concept}</strong></td>
+            <td style="color:#9ca3af">${c.notes||"—"}</td>
+            <td>${fmtDate(c.created_at?.slice(0,10))}</td>
+            <td><strong>${fmtMXN(c.amount)}</strong></td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+      <div style="display:flex;justify-content:flex-end;margin-top:12px">
+        <div style="background:#f9fafb;border-radius:8px;padding:12px 20px;min-width:220px;border:1px solid #e5e7eb">
+          <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800;color:#1d4ed8">
+            <span>${L("TOTAL MANO DE OBRA","TOTAL LABOR")}</span>
+            <span>${fmtMXN(total)}</span>
+          </div>
+        </div>
+      </div>`}
+    </div>
+    <div class="footer"><span>MantPro · ${today()}</span><span>${L("Mano de Obra","Labor Costs")} — ${report.folio}</span></div>`;
+
+  openPDF(L("Mano de Obra","Labor"), report.folio, html);
+}
+
+// ── PDF: RESULTS ──────────────────────────────────────────────────────────────
+function exportPDFResults(report, client, assignments, laborCosts, lang = "es") {
+  const L = (es, en) => lang === "en" ? en : es;
+  const b = report.budget || {};
+  const ingreso         = b.total || 0;
+  const ingresoReal     = (b.advance_paid ? ingreso*(b.advance_pct||50)/100 : 0) + (b.final_paid ? ingreso*(100-(b.advance_pct||50))/100 : 0);
+  const costoMat        = assignments.reduce((s,a) => s+(a.total_cost||0), 0);
+  const costoLabor      = laborCosts.reduce((s,c) => s+(c.amount||0), 0);
+  const costoTotal      = costoMat + costoLabor;
+  const utilidad        = ingreso - costoTotal;
+  const utilidadReal    = ingresoReal - costoTotal;
+  const margen          = ingreso > 0 ? ((utilidad/ingreso)*100).toFixed(1) : 0;
+  const isProfit        = utilidad >= 0;
+
+  const row = (label, value, color="#111827", bold=false) =>
+    `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f3f4f6">
+      <span style="color:#6b7280">${label}</span>
+      <span style="color:${color};font-weight:${bold?800:400}">${value}</span>
+    </div>`;
+
+  const html = `
+    ${pdfHeader(report, client, L("Resultado del Proyecto","Project Results"))}
+    <div class="section">
+      <div class="sec-title">${L("Resumen Financiero","Financial Summary")}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+        ${[
+          [L("INGRESO PRESUPUESTADO","BUDGETED INCOME"), fmtMXN(ingreso), "#15803d"],
+          [L("COSTO TOTAL","TOTAL COST"), fmtMXN(costoTotal), "#dc2626"],
+          [L("UTILIDAD BRUTA","GROSS PROFIT"), fmtMXN(utilidad), isProfit?"#15803d":"#dc2626"],
+        ].map(([l,v,c])=>`
+          <div style="background:#f9fafb;border-radius:8px;padding:12px;border-left:3px solid ${c}">
+            <div style="font-size:10px;color:#9ca3af;font-weight:700;letter-spacing:.5px;margin-bottom:4px">${l}</div>
+            <div style="font-size:18px;font-weight:800;color:${c}">${v}</div>
+          </div>`).join("")}
+      </div>
+      <div style="background:#f9fafb;border-radius:8px;padding:12px 16px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="color:#6b7280;font-size:12px">${L("Margen de utilidad","Profit margin")}</span>
+          <span style="font-size:20px;font-weight:800;color:${isProfit?"#15803d":"#dc2626"}">${margen}%</span>
+        </div>
+        <div style="background:#e5e7eb;border-radius:99px;height:8px;overflow:hidden">
+          <div style="width:${Math.min(Math.abs(parseFloat(margen)),100)}%;background:${isProfit?"#15803d":"#dc2626"};height:100%;border-radius:99px"></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="section">
+        <div class="sec-title">${L("Desglose de Costos","Cost Breakdown")}</div>
+        ${row(L("Materiales","Materials"), fmtMXN(costoMat))}
+        ${row(L("Mano de obra","Labor"), fmtMXN(costoLabor))}
+        ${row(L("TOTAL COSTOS","TOTAL COSTS"), fmtMXN(costoTotal), "#dc2626", true)}
+      </div>
+      <div class="section">
+        <div class="sec-title">${L("Estado de Cobro","Collection Status")}</div>
+        ${row(L("Anticipo cobrado","Advance collected"), b.advance_paid?fmtMXN(ingreso*(b.advance_pct||50)/100):L("Pendiente","Pending"), b.advance_paid?"#15803d":"#9ca3af")}
+        ${row(L("Pago final cobrado","Final payment collected"), b.final_paid?fmtMXN(ingreso*(100-(b.advance_pct||50))/100):L("Pendiente","Pending"), b.final_paid?"#15803d":"#9ca3af")}
+        ${row(L("Total cobrado","Total collected"), fmtMXN(ingresoReal), "#1d4ed8", true)}
+        ${row(L("Utilidad sobre cobrado","Profit on collected"), fmtMXN(utilidadReal), utilidadReal>=0?"#15803d":"#dc2626", true)}
+      </div>
+    </div>
+    <div class="footer"><span>MantPro · ${today()}</span><span>${L("Resultado del Proyecto","Project Results")} — ${report.folio}</span></div>`;
+
+  openPDF(L("Resultado","Results"), report.folio, html);
+}
+
+// ── PDF: TIMELINE ─────────────────────────────────────────────────────────────
+function exportPDFTimeline(report, client, lang = "es") {
+  const L = (es, en) => lang === "en" ? en : es;
+  const timeline = report.timeline || [];
+
+  const html = `
+    ${pdfHeader(report, client, L("Bitácora de Seguimiento","Follow-up Log"))}
+    <div class="section">
+      <div class="sec-title">${L("Historial de Eventos","Event History")} (${timeline.length})</div>
+      ${timeline.length === 0 ? `<p style="color:#9ca3af">${L("Sin eventos registrados","No events registered")}</p>` :
+      timeline.map((t,i)=>`
+        <div style="display:flex;gap:16px;padding:10px 0;border-bottom:1px solid #f3f4f6;align-items:flex-start">
+          <div style="width:24px;height:24px;border-radius:99px;background:#1d4ed8;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px">${i+1}</div>
+          <div style="flex:1">
+            <div style="color:#111827;font-weight:600">${t.event}</div>
+            <div style="color:#9ca3af;font-size:11px;margin-top:2px">${fmtDate(t.created_at?.slice(0,10))} · ${t.user_name||"—"}</div>
+          </div>
+        </div>`).join("")}
+    </div>
+    <div class="footer"><span>MantPro · ${today()}</span><span>${L("Bitácora","Follow-up Log")} — ${report.folio}</span></div>`;
+
+  openPDF(L("Bitácora","Timeline"), report.folio, html);
+}
+
+// ── PDF: INSPECTION REPORT ────────────────────────────────────────────────────
+function exportPDFInspection(report, client, assignedUser, lang = "es") {
+  const L = (es, en) => lang === "en" ? en : es;
+  const findings = report.findings || [];
+  const photos   = report.photos   || [];
+  const sc = s => s==="alta"?"#ef4444":s==="media"?"#f59e0b":"#22c55e";
+
+  const html = `
+    ${pdfHeader(report, client, L("Reporte de Inspección","Inspection Report"))}
+    <div class="section">
+      <div class="sec-title">${L("Información del Proyecto","Project Information")}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        ${[
+          [L("Título","Title"), report.title],
+          [L("Estado","Status"), report.status],
+          [L("Cliente","Client"), client?.name||"—"],
+          [L("Contacto","Contact"), client?.contact||"—"],
+          [L("RFC","Tax ID"), client?.rfc||"—"],
+          [L("Técnico Asignado","Assigned Tech"), assignedUser?.name||report.assigned_to_name||"—"],
+          [L("Creado por","Created by"), report.created_by_name||"—"],
+          [L("Fecha Inspección","Inspection Date"), fmtDate(report.date)],
+        ].map(([l,v])=>`
+          <div style="background:#f9fafb;border-radius:6px;padding:10px 12px">
+            <div style="font-size:10px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">${l}</div>
+            <div style="font-weight:700;color:#111827">${v}</div>
+          </div>`).join("")}
+      </div>
+    </div>
+    ${report.description ? `
+    <div class="section">
+      <div class="sec-title">${L("Descripción / Observaciones","Description / Observations")}</div>
+      <div style="background:#f9fafb;border-radius:8px;padding:14px;color:#374151;line-height:1.7">${report.description}</div>
+    </div>` : ""}
+    ${findings.length ? `
+    <div class="section">
+      <div class="sec-title">${L("Hallazgos","Findings")} (${findings.length})</div>
+      ${findings.map(f=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:6px;border-left:3px solid ${sc(f.severity)};margin-bottom:6px;background:#fafafa">
+          <span style="font-size:11px;font-weight:800;color:${sc(f.severity)};min-width:40px;text-transform:uppercase">${f.severity}</span>
+          <span>${f.description}</span>
+        </div>`).join("")}
+    </div>` : ""}
+    ${photos.length ? `
+    <div class="section">
+      <div class="sec-title">${L("Evidencia Fotográfica","Photo Evidence")} (${photos.length} ${L("fotos","photos")})</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px">
+        ${photos.map(p=>`<img src="${p.url}" style="width:160px;height:120px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb" />`).join("")}
+      </div>
+    </div>` : ""}
+    <div class="footer"><span>MantPro · ${today()}</span><span>${L("Reporte de Inspección","Inspection Report")} — ${report.folio}</span></div>`;
+
+  openPDF(L("Reporte","Report"), report.folio, html);
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // SUPABASE DATA LAYER
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1167,7 +1504,7 @@ function MaterialsModule({ currentUser, toast, lang = "es" }) {
 }
 
 // ── REPORT MATERIALS PANEL (inside ReportDetail) ──────────────────────────────
-function ReportMaterialsPanel({ report, currentUser, lang = "es", toast }) {
+function ReportMaterialsPanel({ report, client, currentUser, lang = "es", toast }) {
   const [assignments, setAssignments] = useState([]);
   const [materials, setMaterials] = useState([]);
   const [selectedMat, setSelectedMat] = useState("");
@@ -1221,6 +1558,10 @@ function ReportMaterialsPanel({ report, currentUser, lang = "es", toast }) {
 
   return (
     <div>
+      <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+        <Btn variant="cyan" sm onClick={()=>exportPDFMaterials(report, client, assignments, totalCost, lang)}>📄 PDF {lang==="en"?" Materials":"Materiales"}</Btn>
+        
+      </div>
       {/* Assign material */}
       <div style={{background:"#1f2937",borderRadius:10,padding:14,marginBottom:16}}>
         <label style={S.label}>{lang==="en"?"ASSIGN MATERIAL":"ASIGNAR MATERIAL"}</label>
@@ -1679,7 +2020,7 @@ function ScheduleModal({ report, onClose, onSave, lang = 'es' }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // LABOR COSTS PANEL — Registro de mano de obra
 // ══════════════════════════════════════════════════════════════════════════════
-function LaborCostsPanel({ report, currentUser, lang = "es", toast }) {
+function LaborCostsPanel({ report, client, currentUser, lang = "es", toast }) {
   const [laborCosts, setLaborCosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newConcept, setNewConcept] = useState("");
@@ -1739,6 +2080,9 @@ function LaborCostsPanel({ report, currentUser, lang = "es", toast }) {
 
   return (
     <div>
+      <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+        <Btn variant="cyan" sm onClick={()=>exportPDFLabor(report,client,laborCosts,lang)}>📄 PDF {L("Mano de Obra","Labor")}</Btn>
+      </div>
       {/* TOTAL */}
       <div style={{background:"#111827",border:"1px solid #f8717130",borderRadius:12,padding:"16px 20px",marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div>
@@ -1799,7 +2143,7 @@ function LaborCostsPanel({ report, currentUser, lang = "es", toast }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // PROJECT RESULT PANEL — Rentabilidad del proyecto
 // ══════════════════════════════════════════════════════════════════════════════
-function ProjectResultPanel({ report, currentUser, lang = "es", toast }) {
+function ProjectResultPanel({ report, client,currentUser, lang = "es", toast }) {
   const [laborCosts, setLaborCosts] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1837,6 +2181,9 @@ function ProjectResultPanel({ report, currentUser, lang = "es", toast }) {
 
   return (
     <div>
+      <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+        <Btn variant="cyan" sm onClick={()=>exportPDFResults(report,client,assignments,laborCosts,lang)}>📄 PDF {L("Resultado","Results")}</Btn>
+      </div>
       {/* ── SUMMARY CARDS ── */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:24}}>
         {[
@@ -1979,7 +2326,6 @@ function ReportDetail({ report, clients, profiles, currentUser, lang = "es", onC
           {report.status==="anticipo"&&<Btn variant="w" sm onClick={()=>action("start")}>{T("startWork")}</Btn>}
           {report.status==="en_proceso"&&<Btn variant="p" sm onClick={()=>action("complete")}>{T("markComplete")}</Btn>}
           {report.status==="completado"&&<Btn variant="s" sm onClick={()=>action("visto_bueno")}>{T("clientApproval")}</Btn>}
-          {(b.total||0)>0&&<Btn variant="cyan" sm onClick={()=>exportPDF(report,client,assigned,lang)}>{T("exportPDF")}</Btn>}
         </div>
 
         {tab==="overview"&&(
@@ -2011,6 +2357,9 @@ function ReportDetail({ report, clients, profiles, currentUser, lang = "es", onC
                 })}
               </div>
             )}
+            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+              <Btn variant="cyan" sm onClick={()=>exportPDFInspection(report,client,assigned,lang)}>📄 PDF {lang==="en"?"WorkOrder":"Orden de Trabajo"}</Btn>
+            </div>
             {report.photos?.length>0&&(
               <div><label style={S.label}>Evidencia Fotográfica ({report.photos.length})</label>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
@@ -2025,7 +2374,7 @@ function ReportDetail({ report, clients, profiles, currentUser, lang = "es", onC
           <div>
             <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginBottom:14}}>
               <Btn variant="g" sm onClick={()=>setShowBudget(true)}>{T("edit")}</Btn>
-              {(b.total||0)>0&&<Btn variant="cyan" sm onClick={()=>exportPDF(report,client,assigned,lang)}>{T("exportPDF")}</Btn>}
+              <Btn variant="cyan" sm onClick={()=>exportPDF(report,client,b.lang)}>{T("exportPDF")}</Btn>
             </div>
             {!report.budgetItems?.length?(
               <div style={{textAlign:"center",padding:40,color:"#4b5563"}}><div style={{fontSize:48,marginBottom:12}}>💰</div><div style={{marginBottom:14}}>{T("emptyBudget")}</div><Btn variant="p" onClick={()=>setShowBudget(true)}>{T("createBudget")}</Btn></div>
@@ -2074,6 +2423,7 @@ function ReportDetail({ report, clients, profiles, currentUser, lang = "es", onC
                 <span style={{color:"#6b7280",fontSize:13}}>{T("overallProgress")}:</span>
                 <span style={{color:"#2563eb",fontWeight:800,fontSize:20}}>{overall}%</span>
               </div>
+              <Btn variant="cyan" sm onClick={()=>exportPDFSchedule(report,client,lang)}>📄 PDF {lang==="en"?"Schedule":"Cronograma"}</Btn>
               <Btn variant="g" sm onClick={()=>setShowSchedule(true)}>{T("edit")}</Btn>
             </div>
             <ProgressBar value={overall} />
@@ -2127,6 +2477,9 @@ function ReportDetail({ report, clients, profiles, currentUser, lang = "es", onC
                   <div style={{color:"#f9fafb",fontSize:13}}>{t.event}</div>
                 </div>
               ))}
+            </div>
+            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+              <Btn variant="cyan" sm onClick={()=>exportPDFTimeline(report,client,lang)}>📄 PDF {lang==="en"?"Log":"Bitácora"}</Btn>
             </div>
             <div style={{borderTop:"1px solid #1f2937",paddingTop:14,marginTop:8}}>
               <label style={S.label}>{T("addNote")}</label>
