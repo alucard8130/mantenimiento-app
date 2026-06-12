@@ -273,10 +273,15 @@ function exportPDF(report, client, assignedUser, lang = "es") {
   </div>
 </div></body></html>`;
 
-  const w = window.open("", "_blank");
-  w.document.write(html);
-  w.document.close();
-  setTimeout(() => w.print(), 600);
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = `Presupuesto_${report.folio}_${new Date().toISOString().slice(0,10)}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
 
@@ -320,10 +325,16 @@ function pdfHeader(report, client, subtitle) {
 }
 
 function openPDF(title, folio, html) {
-  const w = window.open("", "_blank");
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title} ${folio}</title><style>${PDF_BASE_STYLE}</style></head><body><div class="page">${html}</div></body></html>`);
-  w.document.close();
-  setTimeout(() => w.print(), 600);
+  const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title} ${folio}</title><style>${PDF_BASE_STYLE}</style></head><body><div class="page">${html}</div></body></html>`;
+  const blob = new Blob([fullHtml], { type: "text/html;charset=utf-8" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = `${title}_${folio}_${new Date().toISOString().slice(0,10)}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
 // ── PDF: SCHEDULE ─────────────────────────────────────────────────────────────
