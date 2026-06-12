@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import { t } from "./i18n";
 import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { Capacitor } from "@capacitor/core";
+import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
+import { Share } from "@capacitor/share";
 
 
 const isNative = () => { try { return Capacitor.isNativePlatform(); } catch(e) { return false; } };
@@ -196,7 +198,7 @@ function Toast({ toasts }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // PDF EXPORT
 // ══════════════════════════════════════════════════════════════════════════════
-function exportPDF(report, client, assignedUser, lang = "es") {
+async function exportPDF(report, client, assignedUser, lang = "es") {
   const b = report.budget || {};
   const items = report.budgetItems || [];
   const findings = report.findings || [];
@@ -273,11 +275,22 @@ function exportPDF(report, client, assignedUser, lang = "es") {
   </div>
 </div></body></html>`;
 
+  const filename = `Presupuesto_${report.folio}_${new Date().toISOString().slice(0,10)}.html`;
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await Filesystem.writeFile({ path: filename, data: html, directory: Directory.Cache, encoding: Encoding.UTF8 });
+      const { uri } = await Filesystem.getUri({ path: filename, directory: Directory.Cache });
+      await Share.share({ title: `Presupuesto ${report.folio}`, url: uri, dialogTitle: "Guardar / Share PDF" });
+    } catch(e) { console.error("PDF error:", e); }
+    return;
+  }
+
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
   a.href     = url;
-  a.download = `Presupuesto_${report.folio}_${new Date().toISOString().slice(0,10)}.html`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -324,13 +337,37 @@ function pdfHeader(report, client, subtitle) {
   </div>`;
 }
 
-function openPDF(title, folio, html) {
+async function openPDF(title, folio, html) {
   const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title} ${folio}</title><style>${PDF_BASE_STYLE}</style></head><body><div class="page">${html}</div></body></html>`;
+  const filename = `${title}_${folio}_${new Date().toISOString().slice(0,10)}.html`;
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      // Save to device and open share sheet
+      await Filesystem.writeFile({
+        path: filename,
+        data: fullHtml,
+        directory: Directory.Cache,
+        encoding: Encoding.UTF8,
+      });
+      const { uri } = await Filesystem.getUri({ path: filename, directory: Directory.Cache });
+      await Share.share({
+        title: `${title} ${folio}`,
+        url: uri,
+        dialogTitle: `Guardar / Share ${title}`,
+      });
+    } catch(e) {
+      console.error("PDF save error:", e);
+    }
+    return;
+  }
+
+  // Web — download directly
   const blob = new Blob([fullHtml], { type: "text/html;charset=utf-8" });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
   a.href     = url;
-  a.download = `${title}_${folio}_${new Date().toISOString().slice(0,10)}.html`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
