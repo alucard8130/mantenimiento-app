@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.jmeb.mantenimientoapp',
+  appId: 'com.jmeb.mantpro',
   appName: 'MantPro',
   webDir: 'build',
   server: {

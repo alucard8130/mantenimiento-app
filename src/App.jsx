@@ -170,7 +170,7 @@ function Spinner() {
 function Modal({ title, onClose, children, wide }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "#000000b0", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: "#0d1117", border: "1px solid #1f2937", borderRadius: 18, width: "100%", maxWidth: wide ? 900 : 560, maxHeight: "92vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 30px 80px #000c" }}>
+      <div style={{ background: "#0d1117", border: "1px solid #1f2937", borderRadius: 18, width: "100%", maxWidth: wide ? 1100 : 560, maxHeight: "92vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 30px 80px #000c" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid #1f2937", flexShrink: 0 }}>
           <h3 style={{ margin: 0, color: "#f9fafb", fontSize: 16, fontWeight: 800 }}>{title}</h3>
           <button onClick={onClose} style={{ background: "#1f2937", border: "none", color: "#9ca3af", cursor: "pointer", width: 30, height: 30, borderRadius: 8, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
@@ -477,7 +477,74 @@ async function removeCompanyMember(companyId, tecnicoId) {
   return error;
 }
 
+// ── MATERIALS DATA LAYER ──────────────────────────────────────────────────────
+async function fetchMaterials(user) {
+  let query = supabase.from("materials").select("*").order("name");
+  if (user && user.role === "tecnico") query = query.eq("created_by", user.id);
+  const { data } = await query;
+  return data || [];
+}
 
+async function saveMaterial(material) {
+  if (material.id) {
+    const { id, created_by, created_at, updated_at, ...updates } = material;
+    const { data, error } = await supabase.from("materials").update(updates).eq("id", id).select().single();
+    return { data, error };
+  }
+  const { data, error } = await supabase.from("materials").insert(material).select().single();
+  return { data, error };
+}
+
+async function deleteMaterial(id) {
+  const { error } = await supabase.from("materials").delete().eq("id", id);
+  return error;
+}
+
+async function fetchPurchases(materialId) {
+  const { data } = await supabase.from("material_purchases").select("*").eq("material_id", materialId).order("purchase_date", { ascending: false });
+  return data || [];
+}
+
+async function addPurchase(purchase) {
+  const { data, error } = await supabase.from("material_purchases").insert(purchase).select().single();
+  return { data, error };
+}
+
+async function fetchAssignments(reportId) {
+  const { data } = await supabase.from("material_assignments").select("*, materials(name,unit)").eq("report_id", reportId);
+  return data || [];
+}
+
+async function addAssignment(assignment) {
+  const { data, error } = await supabase.from("material_assignments").insert(assignment).select().single();
+  return { data, error };
+}
+
+async function deleteAssignment(id) {
+  const { error } = await supabase.from("material_assignments").delete().eq("id", id);
+  return error;
+}
+
+// ── LABOR COSTS ───────────────────────────────────────────────
+async function fetchLaborCosts(reportId) {
+  const { data } = await supabase.from("labor_costs").select("*").eq("report_id", reportId).order("created_at");
+  return data || [];
+}
+
+async function addLaborCost(item) {
+  const { data, error } = await supabase.from("labor_costs").insert(item).select().single();
+  return { data, error };
+}
+
+async function updateLaborCost(id, updates) {
+  const { error } = await supabase.from("labor_costs").update(updates).eq("id", id);
+  return error;
+}
+
+async function deleteLaborCost(id) {
+  const { error } = await supabase.from("labor_costs").delete().eq("id", id);
+  return error;
+}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // AUTH SCREEN
@@ -670,21 +737,21 @@ function MiEquipoModule({ profiles, currentUser, setCurrentUser, toast ,lang="es
 
   async function add() {
     if (!selectedId) return;
-    if (members.find(m => m.tecnico_id === selectedId)) return toast("Ese técnico ya está en tu equipo", "error");
+    if (members.find(m => m.tecnico_id === selectedId)) return toast("Technician Already added", "error");
     setAdding(true);
     const err = await addCompanyMember(currentUser.id, selectedId);
-    if (err) { toast("Error al agregar técnico", "error"); setAdding(false); return; }
+    if (err) { toast("Error adding technician", "error"); setAdding(false); return; }
     await loadMembers();
     setSelectedId("");
     setAdding(false);
-    toast("Técnico agregado al equipo", "success");
+    toast("Technician added to team", "success");
   }
 
   async function remove(tecnicoId) {
     const err = await removeCompanyMember(currentUser.id, tecnicoId);
-    if (err) return toast("Error al eliminar", "error");
+    if (err) return toast("Error removing technician", "error");
     await loadMembers();
-    toast("Técnico eliminado del equipo", "success");
+    toast("Technician removed from team", "success");
   }
 
   // Available tecnicos not yet in team
@@ -712,7 +779,7 @@ function MiEquipoModule({ profiles, currentUser, setCurrentUser, toast ,lang="es
         </div>
         {available.length === 0 && (
           <p style={{ color: "#4b5563", fontSize: 12, marginTop: 8, marginBottom: 0 }}>
-            No hay técnicos disponibles. Pídeles que se registren en la app primero.
+            No available technicians. Ask them to register in the app first.
           </p>
         )}
       </div>
@@ -738,7 +805,7 @@ function MiEquipoModule({ profiles, currentUser, setCurrentUser, toast ,lang="es
                   <div style={{ color: "#6b7280", fontSize: 12, marginTop: 2 }}>{p.email} · 🔧 Técnico</div>
                 </div>
                 <div style={{ fontSize: 11, color: "#4b5563" }}>{t(lang,'since')} {fmtDate(m.created_at?.slice(0, 10))}</div>
-                <Btn variant="d" sm onClick={() => remove(m.tecnico_id)}>Desvincular</Btn>
+                <Btn variant="d" sm onClick={() => remove(m.tecnico_id)}>Unassign</Btn>
               </div>
             );
           })}
@@ -848,6 +915,364 @@ function UsersModule({ profiles, setProfiles, currentUser, toast , lang="es" }) 
 // ══════════════════════════════════════════════════════════════════════════════
 // CLIENTS MODULE
 // ══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// MATERIALS MODULE — Almacén de materiales
+// ══════════════════════════════════════════════════════════════════════════════
+function MaterialsModule({ currentUser, toast, lang = "es" }) {
+  const [materials, setMaterials] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [showPurchase, setShowPurchase] = useState(null);
+  const [showDetail, setShowDetail] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [search, setSearch] = useState("");
+  const [filterLow, setFilterLow] = useState(false);
+  const [form, setForm] = useState({ name:"", description:"", category:"General", unit:"pieza", unit_price:0, stock:0, stock_min:5, sku:"" });
+  const [purchaseForm, setPurchaseForm] = useState({ quantity:1, unit_price:0, supplier:"", notes:"", purchase_date: today() });
+  const [purchases, setPurchases] = useState([]);
+  const [saving, setSaving] = useState(false);
+
+  const UNITS = ["pz","m²","m³","ml","kg","lt","rollo","caja","bolsa","cubeta","hr"];
+  const CATS  = ["General","Eléctrico","Plomería","Albañilería","Impermeabilización","Pintura","Herramienta","Otro"];
+
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function load() {
+    setLoading(true);
+    const data = await fetchMaterials(currentUser);
+    setMaterials(data);
+    setLoading(false);
+  }
+
+  async function saveMat() {
+    if (!form.name.trim()) return toast(lang==="en"?"Enter material name":"Ingresa el nombre","error");
+    setSaving(true);
+    const payload = editing
+      ? { id: editing, ...form }
+      : { ...form, created_by: currentUser.id === SUPERUSER.id ? null : currentUser.id };
+    const { data, error } = await saveMaterial(payload);
+    if (error) { toast(lang==="en"?"Error saving":"Error al guardar","error"); setSaving(false); return; }
+    if (editing) setMaterials(materials.map(m => m.id===editing ? data : m));
+    else setMaterials([data, ...materials]);
+    toast(lang==="en"?"Material saved":"Material guardado","success");
+    setShowForm(false); setSaving(false);
+  }
+
+  async function delMat(id) {
+    const err = await deleteMaterial(id);
+    if (err) return toast(lang==="en"?"Error deleting":"Error al eliminar","error");
+    setMaterials(materials.filter(m => m.id!==id));
+    toast(lang==="en"?"Material deleted":"Material eliminado","success");
+  }
+
+  async function openPurchase(mat) {
+    setShowPurchase(mat);
+    setPurchaseForm({ quantity:1, unit_price: mat.unit_price||0, supplier:"", notes:"", purchase_date: today() });
+  }
+
+  async function savePurchase() {
+    if (!purchaseForm.quantity || purchaseForm.quantity <= 0) return toast(lang==="en"?"Enter valid quantity":"Ingresa cantidad válida","error");
+    setSaving(true);
+    const payload = {
+      material_id: showPurchase.id,
+      created_by: currentUser.id === SUPERUSER.id ? null : currentUser.id,
+      quantity: parseFloat(purchaseForm.quantity),
+      unit_price: parseFloat(purchaseForm.unit_price)||0,
+      total_cost: parseFloat(purchaseForm.quantity) * parseFloat(purchaseForm.unit_price||0),
+      supplier: purchaseForm.supplier,
+      notes: purchaseForm.notes,
+      purchase_date: purchaseForm.purchase_date,
+    };
+    const { error } = await addPurchase(payload);
+    if (error) { toast(lang==="en"?"Error registering purchase":"Error al registrar compra","error"); setSaving(false); return; }
+    await load();
+    toast(lang==="en"?"Purchase registered":"Compra registrada","success");
+    setShowPurchase(null); setSaving(false);
+  }
+
+  async function openDetail(mat) {
+    setShowDetail(mat);
+    const p = await fetchPurchases(mat.id);
+    setPurchases(p);
+  }
+
+  const lowStock = materials.filter(m => m.stock <= m.stock_min);
+  const filtered = materials
+    .filter(m => !filterLow || m.stock <= m.stock_min)
+    .filter(m => !search || m.name.toLowerCase().includes(search.toLowerCase()) || m.category?.toLowerCase().includes(search.toLowerCase()) || m.sku?.toLowerCase().includes(search.toLowerCase()));
+
+  const totalValue = materials.reduce((s, m) => s + (m.stock * m.unit_price), 0);
+
+  return (
+    <div>
+      {/* PURCHASE MODAL */}
+      {showPurchase && (
+        <Modal title={`🛒 ${lang==="en"?"Register Purchase":"Registrar Compra"} — ${showPurchase.name}`} onClose={()=>setShowPurchase(null)}>
+          <Input label={lang==="en"?"QUANTITY":"CANTIDAD"} type="number" value={purchaseForm.quantity} onChange={e=>setPurchaseForm({...purchaseForm,quantity:e.target.value})} />
+          <Input label={lang==="en"?"UNIT PRICE":"PRECIO UNITARIO"} type="number" value={purchaseForm.unit_price} onChange={e=>setPurchaseForm({...purchaseForm,unit_price:e.target.value})} />
+          <div style={{background:"#1f2937",borderRadius:8,padding:"10px 14px",marginBottom:14,display:"flex",justifyContent:"space-between"}}>
+            <span style={{color:"#6b7280",fontSize:13}}>{lang==="en"?"Total cost":"Costo total"}</span>
+            <span style={{color:"#4ade80",fontWeight:800}}>{fmtMXN(purchaseForm.quantity * purchaseForm.unit_price)}</span>
+          </div>
+          <Input label={lang==="en"?"SUPPLIER":"PROVEEDOR"} value={purchaseForm.supplier} onChange={e=>setPurchaseForm({...purchaseForm,supplier:e.target.value})} placeholder={lang==="en"?"Supplier name":"Nombre del proveedor"} />
+          <Input label={lang==="en"?"PURCHASE DATE":"FECHA DE COMPRA"} type="date" value={purchaseForm.purchase_date} onChange={e=>setPurchaseForm({...purchaseForm,purchase_date:e.target.value})} />
+          <Textarea label={lang==="en"?"NOTES":"NOTAS"} value={purchaseForm.notes} onChange={e=>setPurchaseForm({...purchaseForm,notes:e.target.value})} placeholder={lang==="en"?"Optional notes":"Notas opcionales"} />
+          <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+            <Btn variant="g" onClick={()=>setShowPurchase(null)}>{lang==="en"?"Cancel":"Cancelar"}</Btn>
+            <Btn variant="s" onClick={savePurchase} disabled={saving}>{saving?<><Spinner/>{lang==="en"?"Saving…":"Guardando…"}</>:lang==="en"?"✓ Register":"✓ Registrar"}</Btn>
+          </div>
+        </Modal>
+      )}
+
+      {/* DETAIL MODAL */}
+      {showDetail && (
+        <Modal title={`📦 ${showDetail.name}`} onClose={()=>setShowDetail(null)} wide>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:20}}>
+            {[
+              [lang==="en"?"Stock":"Stock", `${showDetail.stock} ${showDetail.unit}`, showDetail.stock<=showDetail.stock_min?"#f87171":"#4ade80"],
+              [lang==="en"?"Unit Price":"Precio unitario", fmtMXN(showDetail.unit_price), "#60a5fa"],
+              [lang==="en"?"Total Value":"Valor total", fmtMXN(showDetail.stock * showDetail.unit_price), "#a78bfa"],
+            ].map(([l,v,c])=>(
+              <div key={l} style={{background:"#1f2937",borderRadius:10,padding:12}}>
+                <div style={{color:"#6b7280",fontSize:10,fontWeight:700,letterSpacing:.5,marginBottom:4}}>{l}</div>
+                <div style={{color:c,fontWeight:800,fontSize:18}}>{v}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{marginBottom:8,color:"#6b7280",fontSize:11,fontWeight:700,letterSpacing:.5}}>{lang==="en"?"PURCHASE HISTORY":"HISTORIAL DE COMPRAS"}</div>
+          {purchases.length === 0 ? (
+            <div style={{textAlign:"center",padding:30,color:"#4b5563",fontSize:13}}>{lang==="en"?"No purchases registered":"Sin compras registradas"}</div>
+          ) : (
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+              <thead><tr style={{background:"#1f2937"}}>
+                {[lang==="en"?"Date":"Fecha", lang==="en"?"Qty":"Cant.", lang==="en"?"Unit Price":"P.U.", lang==="en"?"Total":"Total", lang==="en"?"Supplier":"Proveedor"].map(h=><th key={h} style={{padding:"8px 12px",color:"#6b7280",textAlign:"left"}}>{h}</th>)}
+              </tr></thead>
+              <tbody>{purchases.map(p=>(
+                <tr key={p.id} style={{borderBottom:"1px solid #1f2937"}}>
+                  <td style={{padding:"8px 12px",color:"#f9fafb"}}>{fmtDate(p.purchase_date)}</td>
+                  <td style={{padding:"8px 12px",color:"#f9fafb"}}>{p.quantity} {showDetail.unit}</td>
+                  <td style={{padding:"8px 12px",color:"#9ca3af"}}>{fmtMXN(p.unit_price)}</td>
+                  <td style={{padding:"8px 12px",color:"#4ade80",fontWeight:700}}>{fmtMXN(p.total_cost)}</td>
+                  <td style={{padding:"8px 12px",color:"#9ca3af"}}>{p.supplier||"—"}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          )}
+          <div style={{display:"flex",justifyContent:"flex-end",marginTop:14}}>
+            <Btn variant="s" onClick={()=>{setShowDetail(null);openPurchase(showDetail);}}>🛒 {lang==="en"?"New Purchase":"Nueva Compra"}</Btn>
+          </div>
+        </Modal>
+      )}
+
+      {/* MATERIAL FORM MODAL */}
+      {showForm && (
+        <Modal title={editing?(lang==="en"?"✏️ Edit Material":"✏️ Editar Material"):(lang==="en"?"➕ New Material":"➕ Nuevo Material")} onClose={()=>setShowForm(false)}>
+          <Input label={lang==="en"?"NAME":"NOMBRE"} value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder={lang==="en"?"Material name":"Nombre del material"} />
+          <Input label={lang==="en"?"SKU / CODE":"SKU / CÓDIGO"} value={form.sku||""} onChange={e=>setForm({...form,sku:e.target.value})} placeholder={lang==="en"?"Optional code":"Código opcional"} />
+          <Textarea label={lang==="en"?"DESCRIPTION":"DESCRIPCIÓN"} value={form.description||""} onChange={e=>setForm({...form,description:e.target.value})} placeholder={lang==="en"?"Optional description":"Descripción opcional"} />
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <Sel label={lang==="en"?"CATEGORY":"CATEGORÍA"} value={form.category} onChange={e=>setForm({...form,category:e.target.value})}>
+              {CATS.map(c=><option key={c}>{c}</option>)}
+            </Sel>
+            <Sel label={lang==="en"?"UNIT":"UNIDAD"} value={form.unit} onChange={e=>setForm({...form,unit:e.target.value})}>
+              {UNITS.map(u=><option key={u}>{u}</option>)}
+            </Sel>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+            <Input label={lang==="en"?"UNIT PRICE":"PRECIO UNIT."} type="number" value={form.unit_price} onChange={e=>setForm({...form,unit_price:parseFloat(e.target.value)||0})} />
+            <Input label={lang==="en"?"INITIAL STOCK":"STOCK INICIAL"} type="number" value={form.stock} onChange={e=>setForm({...form,stock:parseFloat(e.target.value)||0})} />
+            <Input label={lang==="en"?"MIN STOCK":"STOCK MÍNIMO"} type="number" value={form.stock_min} onChange={e=>setForm({...form,stock_min:parseFloat(e.target.value)||0})} />
+          </div>
+          <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+            <Btn variant="g" onClick={()=>setShowForm(false)}>{lang==="en"?"Cancel":"Cancelar"}</Btn>
+            <Btn variant="s" onClick={saveMat} disabled={saving}>{saving?<><Spinner/>{lang==="en"?"Saving…":"Guardando…"}</>:lang==="en"?"✓ Save":"✓ Guardar"}</Btn>
+          </div>
+        </Modal>
+      )}
+
+      {/* HEADER */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:10}}>
+        <div>
+          <h2 style={{margin:0,fontSize:20,fontWeight:800,color:"#f9fafb"}}>{lang==="en"?"Warehouse":"Almacén"}</h2>
+          <p style={{margin:"4px 0 0",color:"#6b7280",fontSize:13}}>{materials.length} {lang==="en"?"materials":"materiales"} · {lang==="en"?"Total value":"Valor total"}: <span style={{color:"#4ade80",fontWeight:700}}>{fmtMXN(totalValue)}</span></p>
+        </div>
+        <Btn variant="p" onClick={()=>{setForm({name:"",description:"",category:"General",unit:"pieza",unit_price:0,stock:0,stock_min:5,sku:""});setEditing(null);setShowForm(true);}}>+ {lang==="en"?"New Material":"Nuevo Material"}</Btn>
+      </div>
+
+      {/* LOW STOCK ALERT */}
+      {lowStock.length > 0 && (
+        <div style={{background:"#450a0a",border:"1px solid #f8717140",borderRadius:10,padding:"12px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setFilterLow(!filterLow)}>
+          <span style={{fontSize:18}}>⚠️</span>
+          <span style={{color:"#f87171",fontWeight:700,fontSize:13}}>{lowStock.length} {lang==="en"?"materials with low stock":"materiales con stock bajo"}</span>
+          <span style={{color:"#f87171",fontSize:12,marginLeft:"auto"}}>{filterLow?(lang==="en"?"Show all":"Ver todos"):(lang==="en"?"Show only":"Ver solo estos")}</span>
+        </div>
+      )}
+
+      {/* FILTERS */}
+      <div style={{display:"flex",gap:10,marginBottom:14}}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={lang==="en"?"🔍 Search materials…":"🔍 Buscar materiales…"} style={{...S.input,flex:1}} />
+      </div>
+
+      {/* LIST */}
+      {loading ? (
+        <div style={{display:"flex",justifyContent:"center",padding:40}}><Spinner/></div>
+      ) : filtered.length === 0 ? (
+        <div style={{textAlign:"center",padding:"60px 0",color:"#4b5563"}}>
+          <div style={{fontSize:52,marginBottom:12}}>📦</div>
+          <div style={{fontSize:16,fontWeight:700,color:"#6b7280",marginBottom:8}}>{lang==="en"?"No materials yet":"Sin materiales"}</div>
+          <Btn variant="p" onClick={()=>{setForm({name:"",description:"",category:"General",unit:"pieza",unit_price:0,stock:0,stock_min:5,sku:""});setEditing(null);setShowForm(true);}}>+ {lang==="en"?"Add first material":"Agregar primer material"}</Btn>
+        </div>
+      ) : (
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {filtered.map(m => {
+            const isLow = m.stock <= m.stock_min;
+            return (
+              <div key={m.id} style={{...S.card,padding:"14px 18px",display:"flex",gap:14,alignItems:"center",borderColor:isLow?"#f8717140":"#1f2937",cursor:"pointer"}}
+                onClick={()=>openDetail(m)}
+                onMouseEnter={e=>e.currentTarget.style.borderColor=isLow?"#f87171":"#2563eb"}
+                onMouseLeave={e=>e.currentTarget.style.borderColor=isLow?"#f8717140":"#1f2937"}>
+                <div style={{width:44,height:44,borderRadius:10,background:isLow?"#450a0a":"#1e3a5f",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>
+                  {m.category==="Eléctrico"?"⚡":m.category==="Plomería"?"🔧":m.category==="Pintura"?"🎨":m.category==="Herramienta"?"🔨":"📦"}
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+                    <span style={{fontWeight:800,color:"#f9fafb",fontSize:14}}>{m.name}</span>
+                    <span style={{fontSize:10,background:"#1f2937",color:"#6b7280",padding:"1px 7px",borderRadius:99}}>{m.category}</span>
+                    {isLow && <span style={{fontSize:10,background:"#450a0a",color:"#f87171",padding:"1px 7px",borderRadius:99,fontWeight:700}}>⚠ {lang==="en"?"Low stock":"Stock bajo"}</span>}
+                  </div>
+                  <div style={{display:"flex",gap:14,fontSize:12,color:"#6b7280"}}>
+                    {m.sku && <span>#{m.sku}</span>}
+                    <span>{lang==="en"?"Unit price":"P.U."}: {fmtMXN(m.unit_price)}</span>
+                    <span>{lang==="en"?"Min":"Mín"}: {m.stock_min} {m.unit}</span>
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:12,alignItems:"center",flexShrink:0}}>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{color:"#6b7280",fontSize:10}}>{lang==="en"?"Stock":"Stock"}</div>
+                    <div style={{color:isLow?"#f87171":"#4ade80",fontWeight:800,fontSize:18}}>{m.stock} <span style={{fontSize:11,fontWeight:400}}>{m.unit}</span></div>
+                  </div>
+                  <div style={{display:"flex",gap:6}} onClick={e=>e.stopPropagation()}>
+                    <Btn variant="s" sm onClick={()=>openPurchase(m)}>🛒</Btn>
+                    <Btn variant="g" sm onClick={()=>{setForm({name:m.name,description:m.description||"",category:m.category,unit:m.unit,unit_price:m.unit_price,stock:m.stock,stock_min:m.stock_min,sku:m.sku||""});setEditing(m.id);setShowForm(true);}}>✏️</Btn>
+                    <Btn variant="d" sm onClick={()=>delMat(m.id)}>🗑</Btn>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── REPORT MATERIALS PANEL (inside ReportDetail) ──────────────────────────────
+function ReportMaterialsPanel({ report, currentUser, lang = "es", toast }) {
+  const [assignments, setAssignments] = useState([]);
+  const [materials, setMaterials] = useState([]);
+  const [selectedMat, setSelectedMat] = useState("");
+  const [qty, setQty] = useState(1);
+  const [notes, setNotes] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function load() {
+    setLoading(true);
+    const [a, m] = await Promise.all([fetchAssignments(report.id), fetchMaterials(currentUser)]);
+    setAssignments(a);
+    setMaterials(m.filter(m => m.stock > 0));
+    setLoading(false);
+  }
+
+  async function assign() {
+    if (!selectedMat || qty <= 0) return toast(lang==="en"?"Select material and quantity":"Selecciona material y cantidad","error");
+    const mat = materials.find(m => m.id === selectedMat);
+    if (!mat) return;
+    if (qty > mat.stock) return toast(lang==="en"?"Insufficient stock":"Stock insuficiente","error");
+    setAdding(true);
+    const { error } = await addAssignment({
+      material_id: selectedMat,
+      report_id: report.id,
+      created_by: currentUser.id === SUPERUSER.id ? null : currentUser.id,
+      quantity: parseFloat(qty),
+      unit_price: mat.unit_price,
+      total_cost: parseFloat(qty) * mat.unit_price,
+      notes,
+    });
+    if (error) { toast(lang==="en"?"Error assigning":"Error al asignar","error"); setAdding(false); return; }
+    await load();
+    setSelectedMat(""); setQty(1); setNotes("");
+    setAdding(false);
+    toast(lang==="en"?"Material assigned":"Material asignado","success");
+  }
+
+  async function remove(id) {
+    const err = await deleteAssignment(id);
+    if (err) return toast(lang==="en"?"Error removing":"Error al eliminar","error");
+    await load();
+    toast(lang==="en"?"Material removed":"Material eliminado","success");
+  }
+
+  const totalCost = assignments.reduce((s, a) => s + (a.total_cost || 0), 0);
+
+  if (loading) return <div style={{display:"flex",justifyContent:"center",padding:20}}><Spinner/></div>;
+
+  return (
+    <div>
+      {/* Assign material */}
+      <div style={{background:"#1f2937",borderRadius:10,padding:14,marginBottom:16}}>
+        <label style={S.label}>{lang==="en"?"ASSIGN MATERIAL":"ASIGNAR MATERIAL"}</label>
+        <div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap"}}>
+          <select value={selectedMat} onChange={e=>setSelectedMat(e.target.value)} style={{...S.input,flex:2,minWidth:140}}>
+            <option value="">{lang==="en"?"Select material…":"Seleccionar material…"}</option>
+            {materials.map(m=><option key={m.id} value={m.id}>{m.name} ({lang==="en"?"stock":"stock"}: {m.stock} {m.unit})</option>)}
+          </select>
+          <input type="number" min={0.1} step={0.1} value={qty} onChange={e=>setQty(e.target.value)} style={{...S.input,width:80}} placeholder={lang==="en"?"Qty":"Cant."} />
+          <Btn variant="s" onClick={assign} disabled={adding}>{adding?<><Spinner/></>:lang==="en"?"+ Assign":"+ Asignar"}</Btn>
+        </div>
+        {selectedMat && (
+          <div style={{color:"#6b7280",fontSize:12,marginTop:6}}>
+            {lang==="en"?"Estimated cost":"Costo estimado"}: <span style={{color:"#4ade80",fontWeight:700}}>{fmtMXN(qty * (materials.find(m=>m.id===selectedMat)?.unit_price||0))}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Assignments list */}
+      {assignments.length === 0 ? (
+        <div style={{textAlign:"center",padding:24,color:"#4b5563",fontSize:13}}>
+          <div style={{fontSize:32,marginBottom:8}}>📦</div>
+          {lang==="en"?"No materials assigned to this report":"Sin materiales asignados a este reporte"}
+        </div>
+      ) : (
+        <>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,marginBottom:12}}>
+            <thead><tr style={{background:"#1f2937"}}>
+              {[lang==="en"?"Material":"Material", lang==="en"?"Qty":"Cant.", lang==="en"?"Unit Price":"P.U.", lang==="en"?"Total":"Total",""].map(h=><th key={h} style={{padding:"8px 12px",color:"#6b7280",textAlign:"left"}}>{h}</th>)}
+            </tr></thead>
+            <tbody>{assignments.map(a=>(
+              <tr key={a.id} style={{borderBottom:"1px solid #1f2937"}}>
+                <td style={{padding:"8px 12px",color:"#f9fafb"}}>{a.materials?.name||"—"}</td>
+                <td style={{padding:"8px 12px",color:"#9ca3af"}}>{a.quantity} {a.materials?.unit||""}</td>
+                <td style={{padding:"8px 12px",color:"#9ca3af"}}>{fmtMXN(a.unit_price)}</td>
+                <td style={{padding:"8px 12px",color:"#4ade80",fontWeight:700}}>{fmtMXN(a.total_cost)}</td>
+                <td style={{padding:"8px 12px"}}><button onClick={()=>remove(a.id)} style={{background:"#dc262630",border:"none",borderRadius:6,color:"#f87171",padding:"4px 8px",cursor:"pointer"}}>✕</button></td>
+              </tr>
+            ))}</tbody>
+          </table>
+          <div style={{display:"flex",justifyContent:"flex-end"}}>
+            <div style={{background:"#1f2937",borderRadius:8,padding:"10px 16px",display:"flex",gap:16,alignItems:"center"}}>
+              <span style={{color:"#6b7280",fontSize:13}}>{lang==="en"?"Total materials cost":"Costo total materiales"}</span>
+              <span style={{color:"#4ade80",fontWeight:800,fontSize:16}}>{fmtMXN(totalCost)}</span>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function ClientsModule({ clients, setClients, reports, toast, currentUser, lang = 'es' }) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -1252,6 +1677,243 @@ function ScheduleModal({ report, onClose, onSave, lang = 'es' }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// LABOR COSTS PANEL — Registro de mano de obra
+// ══════════════════════════════════════════════════════════════════════════════
+function LaborCostsPanel({ report, currentUser, lang = "es", toast }) {
+  const [laborCosts, setLaborCosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [newConcept, setNewConcept] = useState("");
+  const [newAmount, setNewAmount] = useState("");
+  const [newNotes, setNewNotes] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [editConcept, setEditConcept] = useState("");
+  const [editAmount, setEditAmount] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const L = (es, en) => lang === "en" ? en : es;
+
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function load() {
+    setLoading(true);
+    const data = await fetchLaborCosts(report.id);
+    setLaborCosts(data);
+    setLoading(false);
+  }
+
+  async function addCost() {
+    if (!newConcept.trim() || !newAmount) return toast(L("Ingresa concepto y monto","Enter concept and amount"),"error");
+    setSaving(true);
+    const { error } = await addLaborCost({
+      report_id: report.id,
+      created_by: currentUser.id === SUPERUSER.id ? null : currentUser.id,
+      concept: newConcept.trim(),
+      amount: parseFloat(newAmount) || 0,
+      notes: newNotes.trim(),
+    });
+    if (error) { toast(L("Error al agregar","Error adding"),"error"); setSaving(false); return; }
+    setNewConcept(""); setNewAmount(""); setNewNotes("");
+    await load();
+    toast(L("Costo agregado","Cost added"),"success");
+    setSaving(false);
+  }
+
+  async function saveEdit(id) {
+    const err = await updateLaborCost(id, { concept: editConcept, amount: parseFloat(editAmount)||0 });
+    if (err) return toast(L("Error al actualizar","Error updating"),"error");
+    setEditingId(null);
+    await load();
+    toast(L("Costo actualizado","Cost updated"),"success");
+  }
+
+  async function removeCost(id) {
+    const err = await deleteLaborCost(id);
+    if (err) return toast(L("Error al eliminar","Error deleting"),"error");
+    await load();
+    toast(L("Costo eliminado","Cost deleted"),"success");
+  }
+
+  const total = laborCosts.reduce((s, c) => s + (c.amount || 0), 0);
+
+  if (loading) return <div style={{display:"flex",justifyContent:"center",padding:40}}><Spinner/></div>;
+
+  return (
+    <div>
+      {/* TOTAL */}
+      <div style={{background:"#111827",border:"1px solid #f8717130",borderRadius:12,padding:"16px 20px",marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div>
+          <div style={{color:"#6b7280",fontSize:10,fontWeight:700,letterSpacing:.8,marginBottom:4}}>{L("TOTAL MANO DE OBRA","TOTAL LABOR COST")}</div>
+          <div style={{color:"#f87171",fontWeight:800,fontSize:24}}>{fmtMXN(total)}</div>
+        </div>
+        <span style={{fontSize:36}}>👷</span>
+      </div>
+
+      {/* LIST */}
+      {laborCosts.length === 0 ? (
+        <div style={{textAlign:"center",padding:"30px 0",color:"#4b5563",fontSize:13,marginBottom:20}}>
+          <div style={{fontSize:36,marginBottom:8}}>📋</div>
+          {L("Sin costos registrados aún","No costs registered yet")}
+        </div>
+      ) : (
+        <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
+          {laborCosts.map(c => (
+            <div key={c.id} style={{background:"#111827",border:"1px solid #1f2937",borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"center",gap:10}}>
+              {editingId === c.id ? (
+                <>
+                  <input value={editConcept} onChange={e=>setEditConcept(e.target.value)} style={{...S.input,flex:2}} />
+                  <input type="number" value={editAmount} onChange={e=>setEditAmount(e.target.value)} style={{...S.input,width:110}} placeholder={L("Monto","Amount")} />
+                  <Btn variant="s" sm onClick={()=>saveEdit(c.id)}>✓</Btn>
+                  <Btn variant="g" sm onClick={()=>setEditingId(null)}>✕</Btn>
+                </>
+              ) : (
+                <>
+                  <div style={{flex:1}}>
+                    <div style={{color:"#f9fafb",fontWeight:700,fontSize:14}}>{c.concept}</div>
+                    {c.notes && <div style={{color:"#6b7280",fontSize:12,marginTop:2}}>{c.notes}</div>}
+                    <div style={{color:"#4b5563",fontSize:11,marginTop:2}}>{fmtDate(c.created_at?.slice(0,10))}</div>
+                  </div>
+                  <div style={{color:"#f87171",fontWeight:800,fontSize:16,marginRight:8}}>{fmtMXN(c.amount)}</div>
+                  <Btn variant="g" sm onClick={()=>{setEditingId(c.id);setEditConcept(c.concept);setEditAmount(c.amount);}}>✏️</Btn>
+                  <Btn variant="d" sm onClick={()=>removeCost(c.id)}>🗑</Btn>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ADD FORM */}
+      <div style={{background:"#111827",border:"1px solid #1f2937",borderRadius:12,padding:16}}>
+        <label style={{...S.label,marginBottom:10}}>+ {L("NUEVO COSTO","NEW COST")}</label>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>
+          <input value={newConcept} onChange={e=>setNewConcept(e.target.value)} placeholder={L("Concepto (ej. Instalación eléctrica)","Concept (e.g. Electrical installation)")} style={{...S.input,flex:2,minWidth:160}} onKeyDown={e=>e.key==="Enter"&&addCost()} />
+          <input type="number" value={newAmount} onChange={e=>setNewAmount(e.target.value)} placeholder={L("Monto","Amount")} style={{...S.input,width:110}} onKeyDown={e=>e.key==="Enter"&&addCost()} />
+          <Btn variant="s" onClick={addCost} disabled={saving}>{saving?<Spinner/>:`+ ${L("Agregar","Add")}`}</Btn>
+        </div>
+        <input value={newNotes} onChange={e=>setNewNotes(e.target.value)} placeholder={L("Notas opcionales…","Optional notes…")} style={{...S.input,fontSize:12}} />
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PROJECT RESULT PANEL — Rentabilidad del proyecto
+// ══════════════════════════════════════════════════════════════════════════════
+function ProjectResultPanel({ report, currentUser, lang = "es", toast }) {
+  const [laborCosts, setLaborCosts] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const L = (es, en) => lang === "en" ? en : es;
+
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function load() {
+    setLoading(true);
+    const [lc, asgn] = await Promise.all([
+      fetchLaborCosts(report.id),
+      fetchAssignments(report.id),
+    ]);
+    setLaborCosts(lc);
+    setAssignments(asgn);
+    setLoading(false);
+  }
+
+  // ── CALCULATIONS ──────────────────────────────────────────────
+  const b = report.budget || {};
+  const ingreso        = b.total || 0;
+  const ingresoReal    = (b.advance_paid ? (ingreso * (b.advance_pct||50) / 100) : 0) +
+                         (b.final_paid   ? (ingreso * (100-(b.advance_pct||50)) / 100) : 0);
+  const costoMateriales = assignments.reduce((s, a) => s + (a.total_cost || 0), 0);
+  const costoManoObra   = laborCosts.reduce((s, c) => s + (c.amount || 0), 0);
+  const costoTotal      = costoMateriales + costoManoObra;
+  const utilidadBruta   = ingreso - costoTotal;
+  const margen          = ingreso > 0 ? ((utilidadBruta / ingreso) * 100).toFixed(1) : 0;
+  const utilidadReal    = ingresoReal - costoTotal;
+
+  const isProfit = utilidadBruta >= 0;
+
+  if (loading) return <div style={{display:"flex",justifyContent:"center",padding:40}}><Spinner/></div>;
+
+  return (
+    <div>
+      {/* ── SUMMARY CARDS ── */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:24}}>
+        {[
+          { l: L("INGRESO PRESUPUESTADO","BUDGETED INCOME"),  v: fmtMXN(ingreso),        c: "#4ade80", ic: "💰" },
+          { l: L("COSTO TOTAL","TOTAL COST"),                  v: fmtMXN(costoTotal),     c: "#f87171", ic: "📉" },
+          { l: L("UTILIDAD BRUTA","GROSS PROFIT"),             v: fmtMXN(utilidadBruta),  c: isProfit?"#4ade80":"#f87171", ic: isProfit?"✅":"⚠️" },
+        ].map(({ l, v, c, ic }) => (
+          <div key={l} style={{ background: "#111827", border: `1px solid ${c}30`, borderRadius: 12, padding: "16px 18px" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
+              <span style={{ fontSize:18 }}>{ic}</span>
+              <span style={{ color:"#6b7280", fontSize:10, fontWeight:700, letterSpacing:.8 }}>{l}</span>
+            </div>
+            <div style={{ color: c, fontWeight:800, fontSize:20 }}>{v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── MARGIN BAR ── */}
+      <div style={{ background:"#111827", border:"1px solid #1f2937", borderRadius:12, padding:"16px 20px", marginBottom:20 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+          <span style={{ color:"#6b7280", fontSize:13 }}>{L("Margen de utilidad","Profit margin")}</span>
+          <span style={{ color: isProfit?"#4ade80":"#f87171", fontWeight:800, fontSize:22 }}>{margen}%</span>
+        </div>
+        <div style={{ background:"#1f2937", borderRadius:99, height:8, overflow:"hidden" }}>
+          <div style={{ width:`${Math.min(Math.abs(parseFloat(margen)),100)}%`, background: isProfit?"linear-gradient(90deg,#15803d,#4ade80)":"#dc2626", height:"100%", borderRadius:99, transition:"width .5s" }} />
+        </div>
+        <div style={{ display:"flex", justifyContent:"space-between", marginTop:10, fontSize:12, color:"#6b7280" }}>
+          <span>{L("Cobrado hasta ahora","Collected so far")}: <span style={{ color:"#60a5fa", fontWeight:700 }}>{fmtMXN(ingresoReal)}</span></span>
+          <span>{L("Utilidad sobre cobrado","Profit on collected")}: <span style={{ color: utilidadReal>=0?"#4ade80":"#f87171", fontWeight:700 }}>{fmtMXN(utilidadReal)}</span></span>
+        </div>
+      </div>
+
+      {/* ── COST BREAKDOWN ── */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:24 }}>
+        {/* Materials */}
+        <div style={{ background:"#111827", border:"1px solid #1f2937", borderRadius:12, padding:16 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+            <span style={{ color:"#f9fafb", fontWeight:700, fontSize:14 }}>📦 {L("Materiales","Materials")}</span>
+            <span style={{ color:"#f87171", fontWeight:800 }}>{fmtMXN(costoMateriales)}</span>
+          </div>
+          {assignments.length === 0 ? (
+            <p style={{ color:"#4b5563", fontSize:12, margin:0 }}>{L("Sin materiales asignados","No materials assigned")}</p>
+          ) : (
+            assignments.map(a => (
+              <div key={a.id} style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:"#9ca3af", marginBottom:4, paddingBottom:4, borderBottom:"1px solid #1f293740" }}>
+                <span>{a.materials?.name||"—"} × {a.quantity}</span>
+                <span style={{ color:"#f9fafb" }}>{fmtMXN(a.total_cost)}</span>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Labor */}
+        <div style={{ background:"#111827", border:"1px solid #1f2937", borderRadius:12, padding:16 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+            <span style={{ color:"#f9fafb", fontWeight:700, fontSize:14 }}>👷 {L("Mano de obra","Labor")}</span>
+            <span style={{ color:"#f87171", fontWeight:800 }}>{fmtMXN(costoManoObra)}</span>
+          </div>
+          {laborCosts.length === 0 ? (
+            <p style={{ color:"#4b5563", fontSize:12, margin:0 }}>{L("Sin costos registrados","No costs registered")}</p>
+          ) : (
+            laborCosts.map(c => (
+              <div key={c.id} style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:"#9ca3af", marginBottom:4, paddingBottom:4, borderBottom:"1px solid #1f293740" }}>
+                <span>{c.concept}</span>
+                <span style={{ color:"#f9fafb" }}>{fmtMXN(c.amount)}</span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // REPORT DETAIL
 // ══════════════════════════════════════════════════════════════════════════════
 function ReportDetail({ report, clients, profiles, currentUser, lang = "es", onClose, onRefresh, addNotif, toast }) {
@@ -1295,7 +1957,7 @@ function ReportDetail({ report, clients, profiles, currentUser, lang = "es", onC
     onRefresh();
   }
 
-  const TABS = [["overview",T("tabReport")],["presupuesto",T("tabBudget")],["cronograma",T("tabSchedule")],["timeline",T("tabTimeline")]];
+  const TABS = [["overview",T("tabReport")],["presupuesto",T("tabBudget")],["cronograma",T("tabSchedule")],["materiales",lang==="en"?"📦 Materials":"📦 Materiales"],["manoobra",lang==="en"?"👷 Labor":"👷 Mano de obra"],["resultado",lang==="en"?"📊 Results":"📊 Resultado"],["timeline",T("tabTimeline")]];
 
   return (
     <Modal title={`${report.folio} · ${report.title}`} onClose={onClose} wide>
@@ -1440,6 +2102,18 @@ function ReportDetail({ report, clients, profiles, currentUser, lang = "es", onC
               ))}
             </div>
           </div>
+        )}
+
+        {tab==="materiales"&&(
+          <ReportMaterialsPanel report={report} currentUser={currentUser} lang={lang} toast={toast} />
+        )}
+
+        {tab==="manoobra"&&(
+          <LaborCostsPanel report={report} currentUser={currentUser} lang={lang} toast={toast} />
+        )}
+
+        {tab==="resultado"&&(
+          <ProjectResultPanel report={report} currentUser={currentUser} lang={lang} toast={toast} />
         )}
 
         {tab==="timeline"&&(
@@ -1721,6 +2395,8 @@ function HelpModal({ currentUser, lang = "es", onClose }) {
     { id: "reportes",     icon: "📋", label: isEN ? "Reports"   : "Reportes" },
     { id: "presupuestos", icon: "💰", label: isEN ? "Budgets"   : "Presupuestos" },
     { id: "cronograma",   icon: "📅", label: isEN ? "Schedule"  : "Cronograma" },
+    { id: "almacen",      icon: "📦", label: isEN ? "Warehouse" : "Almacén" },
+    { id: "resultado",    icon: "📊", label: isEN ? "Results"   : "Resultado" },
     { id: "clientes",     icon: "🏢", label: isEN ? "Clients"   : "Clientes" },
     ...(role === "empresarial" ? [{ id: "equipo", icon: "👥", label: isEN ? "My Team" : "Mi Equipo" }] : []),
     { id: "flujo",        icon: "🔄", label: isEN ? "Workflow"  : "Flujo de trabajo" },
@@ -1878,6 +2554,43 @@ function HelpModal({ currentUser, lang = "es", onClose }) {
               </div>
             )}
 
+            {tab === "almacen" && (
+              <div>
+                <H2>{T2("📦 Almacén de Materiales","📦 Warehouse")}</H2>
+                <P>{T2("El módulo de almacén te permite controlar el inventario de materiales, registrar compras y asignarlos a tus proyectos.","The warehouse module lets you control material inventory, register purchases and assign them to your projects.")}</P>
+                <H3>{T2("Catálogo de materiales","Material catalog")}</H3>
+                <Step n="1" title={T2("Ve al módulo Almacén","Go to Warehouse module")}>{T2("Clic en 📦 Almacén en el menú superior.","Click 📦 Warehouse in the top menu.")}</Step>
+                <Step n="2" title={T2("Clic en '+ Nuevo Material'","Click '+ New Material'")}>{T2("Ingresa nombre, SKU, categoría, unidad, precio unitario, stock inicial y stock mínimo.","Enter name, SKU, category, unit, unit price, initial stock and minimum stock.")}</Step>
+                <Step n="3" title={T2("Registrar compra","Register purchase")}>{T2("Presiona el botón 🛒 en la tarjeta del material para registrar una entrada de inventario.","Press the 🛒 button on the material card to register an inventory entry.")}</Step>
+                <Step n="4" title={T2("Asignar a reporte","Assign to report")}>{T2("Dentro de cualquier reporte, ve a la pestaña 📦 Materiales y selecciona el material y cantidad a usar.","Inside any report, go to the 📦 Materials tab and select the material and quantity to use.")}</Step>
+                <H3>{T2("Alertas de stock bajo","Low stock alerts")}</H3>
+                <Li icon="⚠️">{T2("Cuando el stock de un material baja del mínimo definido aparece una alerta roja.","When a material's stock drops below the defined minimum a red alert appears.")}</Li>
+                <Li icon="🔴">{T2("El menú muestra un badge rojo con el número de materiales en stock bajo.","The menu shows a red badge with the number of low-stock materials.")}</Li>
+                <Tip>{T2("El stock se actualiza automáticamente al registrar compras y al asignar materiales a reportes.","Stock updates automatically when registering purchases and assigning materials to reports.")}</Tip>
+              </div>
+            )}
+
+            {tab === "resultado" && (
+              <div>
+                <H2>{T2("📊 Resultado del Proyecto","📊 Project Results")}</H2>
+                <P>{T2("Cada reporte tiene tres pestañas financieras que te permiten controlar la rentabilidad del proyecto.","Each report has three financial tabs that let you control project profitability.")}</P>
+                <H3>{T2("Pestaña 📦 Materiales","📦 Materials tab")}</H3>
+                <Li icon="📦">{T2("Asigna materiales del inventario al reporte. El stock se descuenta automáticamente.","Assign materials from inventory to the report. Stock is automatically deducted.")}</Li>
+                <Li icon="💰">{T2("Muestra el costo total de materiales usados en el proyecto.","Shows the total cost of materials used in the project.")}</Li>
+                <H3>{T2("Pestaña 👷 Mano de Obra","👷 Labor tab")}</H3>
+                <Li icon="➕">{T2("Agrega conceptos de costo libre: instalación, traslado, viáticos, subcontrato, etc.","Add free cost concepts: installation, travel, per diem, subcontract, etc.")}</Li>
+                <Li icon="✏️">{T2("Edita o elimina cualquier concepto registrado.","Edit or delete any registered concept.")}</Li>
+                <Li icon="💰">{T2("Muestra el total acumulado de mano de obra del proyecto.","Shows the accumulated total labor cost of the project.")}</Li>
+                <H3>{T2("Pestaña 📊 Resultado","📊 Results tab")}</H3>
+                <Li icon="💰">{T2("Ingreso presupuestado — el total del presupuesto aprobado.","Budgeted income — the total of the approved budget.")}</Li>
+                <Li icon="📉">{T2("Costo total — suma de materiales + mano de obra registrada.","Total cost — sum of materials + registered labor.")}</Li>
+                <Li icon="✅">{T2("Utilidad bruta — ingreso menos costos totales.","Gross profit — income minus total costs.")}</Li>
+                <Li icon="📊">{T2("Margen de utilidad — porcentaje de ganancia sobre el ingreso.","Profit margin — profit percentage over income.")}</Li>
+                <Li icon="💳">{T2("Cobrado hasta ahora — según anticipos y pagos finales registrados.","Collected so far — based on registered advances and final payments.")}</Li>
+                <Tip>{T2("Mantén los materiales y la mano de obra actualizados para tener una visión real de la rentabilidad del proyecto.","Keep materials and labor updated to have a real view of project profitability.")}</Tip>
+              </div>
+            )}
+
             {tab === "clientes" && (
               <div>
                 <H2>{T2("🏢 Clientes","🏢 Clients")}</H2>
@@ -1970,6 +2683,7 @@ export default function App() {
   const [search, setSearch]           = useState("");
   const [loading, setLoading]         = useState(true);
   const [showHelp, setShowHelp]         = useState(false);
+  const [materials, setMaterials]       = useState([]);
 
   const toast = useCallback((msg, type="success") => {
     const id = genId();
@@ -1981,7 +2695,8 @@ export default function App() {
   async function loadAll(user) {
     setLoading(true);
     try {
-      const [p, c, r] = await Promise.all([fetchProfiles(), fetchClients(user), fetchReports(user)]);
+      const [p, c, r, mat] = await Promise.all([fetchProfiles(), fetchClients(user), fetchReports(user), fetchMaterials(user)]);
+      setMaterials(mat);
       console.log("DEBUG perfiles cargados:", p);
       setProfiles(p.filter(x => !isSuperEmail(x.email)));
       setClients(c);
@@ -2090,9 +2805,11 @@ export default function App() {
     facturado: reports.filter(r=>r.status==="visto_bueno").reduce((s,r)=>s+(r.budget?.total||0),0),
   };
 
+  const lowStockCount = materials.filter(m => m.stock <= m.stock_min).length;
   const NAV = [
     {id:"reportes",      icon:"📋",label:T("reports")},
     {id:"clientes",      icon:"🏢",label:T("clients")},
+    {id:"almacen",       icon:"📦",label:lang==="en"?"Warehouse":"Almacén", badge: lowStockCount},
     {id:"notificaciones",icon:"🔔",label:T("alerts"),badge:unread},
     ...(currentUser.role==="empresarial"?[{id:"miequipo",icon:"👥",label:T("myTeam")}]:[]),
     ...(currentUser.role==="superadmin"?[
@@ -2201,6 +2918,7 @@ export default function App() {
       ) : (
         <div className="main-content" style={{maxWidth:1200,margin:"0 auto",padding:"24px 20px"}}>
           {section==="clientes"     && <ClientsModule clients={clients} setClients={setClients} reports={reports} toast={toast} currentUser={currentUser} lang={lang} />}
+          {section==="almacen"      && <MaterialsModule currentUser={currentUser} toast={toast} lang={lang} />}
           {section==="notificaciones"&&<NotificationsPanel notifs={notifs} setNotifs={setNotifs} currentUser={currentUser} lang={lang} onSelectReport={id=>{const r=reports.find(x=>x.id===id);if(r){setSelected(r);setSection("reportes");}}} />}
           {section==="miequipo"&&currentUser.role==="empresarial"&&<MiEquipoModule profiles={profiles} currentUser={currentUser} setCurrentUser={setCurrentUser} toast={toast} lang={lang} />}
           {section==="usuarios"&&currentUser.role==="superadmin"&&<UsersModule profiles={profiles} setProfiles={setProfiles} currentUser={currentUser} toast={toast} lang={lang} />}
