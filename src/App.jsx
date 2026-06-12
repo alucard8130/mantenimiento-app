@@ -1280,8 +1280,13 @@ function MaterialsModule({ currentUser, toast, lang = "es" }) {
   const [purchases, setPurchases] = useState([]);
   const [saving, setSaving] = useState(false);
 
-  const UNITS = ["pz","m²","m³","ml","kg","lt","rollo","caja","bolsa","cubeta","hr"];
-  const CATS  = ["General","Eléctrico","Plomería","Albañilería","Impermeabilización","Pintura","Herramienta","Otro"];
+  const UNITS = lang === "en"
+    ? ["pc","m²","m³","ml","kg","lt","roll","box","bag","bucket","hr"]
+    : ["pz","m²","m³","ml","kg","lt","rollo","caja","bolsa","cubeta","hr"];
+
+  const CATS = lang === "en"
+    ? ["General","Electrical","Plumbing","Masonry / Bricklaying","Waterproofing","Paint","Tool","Other"]
+    : ["General","Eléctrico","Plomería","Albañilería","Impermeabilización","Pintura","Herramienta","Otro"];
 
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
