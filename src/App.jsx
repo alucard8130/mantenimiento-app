@@ -3225,7 +3225,7 @@ export default function App() {
   ];
 
   return (
-    <div style={{minHeight:"100vh",background:"#030712",fontFamily:"DM Sans, sans-serif",color:"#f9fafb"}}>
+    <div style={{minHeight:"100vh",background:"#030712",fontFamily:"DM Sans, sans-serif",color:"#f9fafb",paddingBottom:"env(safe-area-inset-bottom)"}}>
       <style>{`
         *{box-sizing:border-box}
         @keyframes slideIn{from{transform:translateX(20px);opacity:0}to{transform:none;opacity:1}}
@@ -3286,7 +3286,7 @@ export default function App() {
       <Toast toasts={toasts} />
 
       {/* HEADER */}
-      <div style={{background:"#070d1b",borderBottom:"1px solid #111827",position:"sticky",top:0,zIndex:100}}>
+      <div style={{background:"#070d1b",borderBottom:"1px solid #111827",position:"sticky",top:0,zIndex:100,paddingTop:"env(safe-area-inset-top)"}}>
         <div style={{maxWidth:1200,margin:"0 auto",padding:"0 12px",display:"flex",alignItems:"center",gap:8,height:54}}>
           {/* LOGO */}
           <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
