@@ -3228,6 +3228,7 @@ export default function App() {
     <div style={{minHeight:"100vh",background:"#030712",fontFamily:"DM Sans, sans-serif",color:"#f9fafb",paddingBottom:"env(safe-area-inset-bottom)"}}>
       <style>{`
         *{box-sizing:border-box}
+        body { background: #030712; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
         @keyframes slideIn{from{transform:translateX(20px);opacity:0}to{transform:none;opacity:1}}
         @keyframes spin{to{transform:rotate(360deg)}}
         input[type=range]{accent-color:#2563eb}
