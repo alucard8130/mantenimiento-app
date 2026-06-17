@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { t } from "./i18n";
 import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { Capacitor } from "@capacitor/core";
+import { NativeBiometric } from 'capacitor-native-biometric';
 import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
 
@@ -947,7 +948,10 @@ function AuthScreen({ onLogin }) {
     setLoading(true); setError("");
     // Superusuario — autenticar localmente
     if (isSuperEmail(form.email)) {
-      if (form.password === SUPERUSER.password) { onLogin(SUPERUSER, null); }
+      if (form.password === SUPERUSER.password) {
+        await saveCredentialsForBiometric(form.email, form.password);
+        onLogin(SUPERUSER, null);
+      }
       else { setError("Contraseña incorrecta"); setLoading(false); }
       return;
     }
@@ -968,8 +972,72 @@ function AuthScreen({ onLogin }) {
       await supabase.from("profiles").insert(fallback);
       profile = fallback;
     }
+    await saveCredentialsForBiometric(form.email, form.password);
     onLogin(profile, data.session);
   }
+
+  async function saveCredentialsForBiometric(email, password) {
+    if (!isNative()) return;
+    try {
+      await NativeBiometric.setCredentials({
+        username: email,
+        password: password,
+        server: "mantpro.app",
+      });
+    } catch(e) { /* silently ignore */ }
+  }
+
+  async function handleFaceIDLogin() {
+    setError("");
+    try {
+      const avail = await NativeBiometric.isAvailable();
+      if (!avail.isAvailable) { setError("Face ID no disponible en este dispositivo"); return; }
+
+      await NativeBiometric.verifyIdentity({
+        reason: "Accede a MantPro",
+        title: "Face ID",
+        subtitle: "MantPro",
+        description: "Usa Face ID para iniciar sesión",
+      });
+
+      const credentials = await NativeBiometric.getCredentials({ server: "mantpro.app" });
+      setLoading(true);
+      f("email", credentials.username);
+      f("password", credentials.password);
+
+      // Reutiliza la misma lógica de login con las credenciales guardadas
+      if (isSuperEmail(credentials.username)) {
+        if (credentials.password === SUPERUSER.password) { onLogin(SUPERUSER, null); }
+        else { setError("Credenciales guardadas inválidas"); setLoading(false); }
+        return;
+      }
+      const { data, error } = await sbSignIn(credentials.username, credentials.password);
+      if (error) { setError("Sesión expirada, inicia sesión manualmente"); setLoading(false); return; }
+      let profile = null;
+      for (let i = 0; i < 3; i++) {
+        const profiles = await fetchProfiles();
+        profile = profiles.find(p => p.id === data.user.id);
+        if (profile) break;
+        await new Promise(r => setTimeout(r, 600));
+      }
+      onLogin(profile, data.session);
+    } catch(e) {
+      setError("Face ID cancelado o sin credenciales guardadas");
+    }
+  }
+
+  // Verifica si hay credenciales guardadas para mostrar el botón Face ID
+  const [hasBiometric, setHasBiometric] = useState(false);
+  useEffect(() => {
+    if (!isNative()) return;
+    NativeBiometric.isAvailable().then(async (avail) => {
+      if (!avail.isAvailable) return;
+      try {
+        await NativeBiometric.getCredentials({ server: "mantpro.app" });
+        setHasBiometric(true);
+      } catch(e) { setHasBiometric(false); }
+    });
+  }, []);
 
   async function handleRegister() {
     if (!form.name.trim()) return setError("Ingresa tu nombre completo");
@@ -1050,6 +1118,11 @@ function AuthScreen({ onLogin }) {
               <div style={{ marginBottom: 22 }}><label style={S.label}>{form.lang==="en"?"PASSWORD":"CONTRASEÑA"}</label><input value={form.password} onChange={e => f("password",e.target.value)} placeholder="••••••••" type="password" style={iStyle} onKeyDown={e => e.key==="Enter"&&handleLogin()} /></div>
               {error && <div style={{ background:"#450a0a",border:"1px solid #f8717140",borderRadius:8,padding:"10px 14px",color:"#f87171",fontSize:13,marginBottom:16 }}>{error}</div>}
               <button onClick={handleLogin} disabled={loading} style={{ width:"100%",background:"linear-gradient(135deg,#2563eb,#1d4ed8)",border:"none",borderRadius:10,padding:13,color:"#fff",fontWeight:800,fontSize:15,cursor:loading?"not-allowed":"pointer",opacity:loading?.7:1,fontFamily:"DM Sans,sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:10 }}>{loading?<><Spinner/>{form.lang==="en"?"Verifying…":"Verificando…"}</>:form.lang==="en"?"Sign In":"Iniciar Sesión"}</button>
+              {hasBiometric && (
+                <button onClick={handleFaceIDLogin} style={{ width:"100%",background:"#1f2937",border:"1px solid #374151",borderRadius:10,padding:13,color:"#f9fafb",fontWeight:800,fontSize:15,cursor:"pointer",fontFamily:"DM Sans,sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginTop:10 }}>
+                  🔐 {form.lang==="en"?"Sign in with biometrics":"Iniciar con biometría"}
+                </button>
+              )}
               <p style={{ textAlign:"center",color:"#4b5563",fontSize:13,marginTop:18,marginBottom:0 }}>{form.lang==="en"?"Don't have an account?":"¿No tienes cuenta?"} <span onClick={()=>{setMode("register");setError("");}} style={{color:"#2563eb",cursor:"pointer",fontWeight:700}}>{form.lang==="en"?"Sign up":"Regístrate"}</span></p>
             </>
           ) : (
