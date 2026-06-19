@@ -3238,6 +3238,7 @@ function HelpModal({ currentUser, lang = "es", onClose }) {
     { id: "almacen",      icon: "📦", label: isEN ? "Warehouse" : "Almacén" },
     { id: "resultado",    icon: "📊", label: isEN ? "Results"   : "Resultado" },
     { id: "clientes",     icon: "🏢", label: isEN ? "Clients"   : "Clientes" },
+    { id: "portal", icon: "🔗", label: isEN ? "Client Portal" : "Portal Cliente" },
     ...(role === "empresarial" ? [{ id: "equipo", icon: "👥", label: isEN ? "My Team" : "Mi Equipo" }] : []),
     { id: "flujo",        icon: "🔄", label: isEN ? "Workflow"  : "Flujo de trabajo" },
   ];
@@ -3450,6 +3451,87 @@ function HelpModal({ currentUser, lang = "es", onClose }) {
                 <Tip>{T2("Crea el cliente antes de crear el reporte. Sin cliente no es posible guardar un reporte.","Create the client before creating the report. Without a client you cannot save a report.")}</Tip>
               </div>
             )}
+            {tab === "portal" && (
+  <div>
+    <H2>{T2("🔗 Portal Cliente (sin login)","🔗 Client Portal (no login)")}</H2>
+    <P>
+      {T2(
+        "El Portal Cliente permite que el cliente revise y autorice su proyecto desde un link personal, sin crear cuenta ni instalar app.",
+        "The Client Portal lets clients review and approve their project from a personal link, without creating an account or installing an app."
+      )}
+    </P>
+
+    <H3>{T2("Como funciona","How it works")}</H3>
+    <Step n="1" title={T2("Abrir link personal","Open personal link")}>
+      {T2(
+        "Comparte al cliente el link /cliente/{token}. Puede abrirlo desde celular o computadora.",
+        "Share the /cliente/{token} link with the client. They can open it on mobile or desktop."
+      )}
+    </Step>
+    <Step n="2" title={T2("Revisar informacion del proyecto","Review project information")}>
+      {T2(
+        "El cliente ve titulo, estado, fecha, descripcion y datos del reporte.",
+        "The client sees title, status, date, description and report details."
+      )}
+    </Step>
+    <Step n="3" title={T2("Revisar presupuesto","Review budget")}>
+      {T2(
+        "Puede revisar partidas, cantidades, precios, total e impuestos.",
+        "They can review items, quantities, prices, totals and taxes."
+      )}
+    </Step>
+    <Step n="4" title={T2("Autorizar o rechazar","Authorize or reject")}>
+      {T2(
+        "Si el reporte esta en estado Enviado, aparecen botones para Autorizar o Rechazar.",
+        "If the report is in Sent status, buttons appear to Authorize or Reject."
+      )}
+    </Step>
+    <Step n="5" title={T2("Dar seguimiento al avance","Track progress")}>
+      {T2(
+        "El cliente visualiza cronograma, porcentaje de avance y evidencia fotografica.",
+        "The client can view schedule, progress percentage and photo evidence."
+      )}
+    </Step>
+    <Step n="6" title={T2("Enviar comentarios","Send comments")}>
+      {T2(
+        "Puede escribir comentarios con su nombre para dudas o aclaraciones.",
+        "They can submit comments with their name for questions or clarifications."
+      )}
+    </Step>
+    <Step n="7" title={T2("Dar visto bueno final","Give final approval")}>
+      {T2(
+        "Cuando el trabajo este completado, puede confirmar entrega con Visto Bueno.",
+        "When work is completed, they can confirm delivery with Final Approval."
+      )}
+    </Step>
+
+    <H3>{T2("Importante","Important")}</H3>
+    <Li icon="🔒">
+      {T2(
+        "El link es personal del proyecto. Guardalo en favoritos o compartelo nuevamente desde el sistema.",
+        "The link is project-specific. Save it in bookmarks or share it again from the system."
+      )}
+    </Li>
+    <Li icon="📱">
+      {T2(
+        "Compatible con navegadores moviles y de escritorio.",
+        "Compatible with mobile and desktop browsers."
+      )}
+    </Li>
+
+    <H3>{T2("Preguntas frecuentes","FAQ")}</H3>
+    <Li icon="❓">{T2("No requiere cuenta ni contrasena.", "No account or password is required.")}</Li>
+    <Li icon="✅">{T2("Si rechaza, el tecnico recibe notificacion para ajustar propuesta.", "If rejected, the technician is notified to adjust the proposal.")}</Li>
+    <Li icon="💬">{T2("Si desea cambios despues de autorizar, debe contactar al tecnico.", "If changes are needed after approval, the client must contact the technician.")}</Li>
+
+    <Tip>
+      {T2(
+        "Usa esta opcion para dar transparencia al cliente y acelerar autorizaciones.",
+        "Use this option to improve client transparency and speed up approvals."
+      )}
+    </Tip>
+  </div>
+)}
 
             {tab === "equipo" && role === "empresarial" && (
               <div>
@@ -3500,7 +3582,7 @@ function HelpModal({ currentUser, lang = "es", onClose }) {
         </div>
 
         <div style={{ padding: "12px 24px", borderTop: "1px solid #1f2937", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#070d1b", flexShrink: 0 }}>
-          <span style={{ color: "#4b5563", fontSize: 12 }}>{T2("MantPro — Manual de Usuario v1.0","MantPro — User Manual v1.0")}</span>
+          <span style={{ color: "#4b5563", fontSize: 12 }}>{T2("MantPro — Manual de Usuario v1.1","MantPro — User Manual v1.0")}</span>
           <Btn variant="g" sm onClick={onClose}>{T2("Cerrar","Close")}</Btn>
         </div>
       </div>
