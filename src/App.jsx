@@ -3532,13 +3532,6 @@ export default function App() {
     setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),3200);
   },[]);
 
-  // ── CLIENT PORTAL ROUTING ──────────────────────────────────────────────────
-  // Detect /cliente/{token} URL and render ClientPortal without auth
-  const clientTokenMatch = typeof window !== "undefined" ? window.location.pathname.match(/\/cliente\/([0-9a-fA-F-]{36})/) : null;
-  if (clientTokenMatch) {
-    return <ClientPortal token={clientTokenMatch[1]} />;
-  }
-
   // ── LOAD DATA ───────────────────────────────────────────────────────────────
   async function loadAll(user) {
     setLoading(true);
@@ -3611,6 +3604,16 @@ export default function App() {
     restoreSession();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+   // ── CLIENT PORTAL ROUTING ──────────────────────────────────────────────────
+  // Detect /cliente/{token} URL and render ClientPortal without auth
+  const clientTokenMatch = typeof window !== "undefined" ? window.location.pathname.match(/\/cliente\/([0-9a-fA-F-]{36})/) : null;
+  
+  if (clientTokenMatch) {
+    return <ClientPortal token={clientTokenMatch[1]} />;
+  }
+
+  if (!currentUser) return <AuthScreen onLogin={handleLogin} />;
+  
   async function handleLogout() {
     if (currentUser?.id !== SUPERUSER.id) await sbSignOut();
     setCurrentUser(null);
