@@ -1057,10 +1057,10 @@ function AuthScreen({ onLogin }) {
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: "#030712", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "DM Sans, sans-serif", position: "relative", overflow: "hidden" }}>
+    <div style={{ minHeight: "100vh", background: "#030712", display: "flex", alignItems: "flex-start", justifyContent: "center", fontFamily: "DM Sans, sans-serif", position: "relative", overflowY: "auto" }}>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes slideIn{from{transform:translateX(20px);opacity:0}to{transform:none;opacity:1}}`}</style>
       <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 20% 50%, #1d4ed820 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, #7c3aed15 0%, transparent 50%)" }} />
-      <div style={{ position: "relative", width: "100%", maxWidth: 440, padding: 24 }}>
+      <div style={{ position: "relative", width: "100%", maxWidth: 440, padding: 24, paddingTop: 60 }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <img src="/icon-only.svg" alt="MantPro" style={{ width: 72, height: 72, margin: "0 auto 16px", display: "block", borderRadius: 18 }} onError={e => { e.target.style.display="none"; }} />
           <h1 style={{ color: "#f9fafb", fontSize: 28, fontWeight: 800, margin: 0, letterSpacing: -0.5, fontFamily: "DM Sans, sans-serif" }}>MantPro</h1>
