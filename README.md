@@ -60,6 +60,7 @@
 - Barra visual de rentabilidad
 
 ### 🏢 Clientes
+- Link Clientes para que autoricen el presupuesto
 - CRUD completo con RFC, contacto, teléfono y dirección
 - Estado activo / inactivo
 - Contador de reportes por cliente

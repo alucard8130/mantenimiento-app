@@ -932,6 +932,40 @@ async function deleteLaborCost(id) {
   return error;
 }
 
+// ── CLIENT PORTAL (public access via token) ──────────────────────────────────
+async function fetchReportByToken(token) {
+  const { data, error } = await supabase
+    .from("reports")
+    .select(`*, clients(name,email,contact,rfc), findings(*), photos(*), budgets(*, budget_items(*)), schedule(*), timeline(*)`)
+    .eq("client_token", token)
+    .single();
+  if (error || !data) return null;
+  return normalizeReport(data);
+}
+
+async function fetchClientComments(reportId) {
+  const { data } = await supabase.from("client_comments").select("*").eq("report_id", reportId).order("created_at");
+  return data || [];
+}
+
+async function clientAddComment(token, authorName, message) {
+  const { data, error } = await supabase.rpc("client_add_comment", {
+    p_token: token,
+    p_author_name: authorName,
+    p_message: message,
+  });
+  return { data, error };
+}
+
+async function clientUpdateStatus(token, status, event) {
+  const { data, error } = await supabase.rpc("client_update_status", {
+    p_token: token,
+    p_status: status,
+    p_event: event,
+  });
+  return { data, error };
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // AUTH SCREEN
 // ══════════════════════════════════════════════════════════════════════════════
@@ -2446,6 +2480,11 @@ function ReportDetail({ report, clients, profiles, currentUser, lang = "es", onC
         <div className="actions-bar" style={{display:"flex",gap:8,marginBottom:18,flexWrap:"wrap",background:"#111827",borderRadius:10,padding:12,alignItems:"center"}}>
           <Badge status={report.status} />
           <div style={{flex:1}}/>
+          <Btn variant="purple" sm onClick={()=>{
+            const url = `${window.location.origin}/cliente/${report.client_token}`;
+            navigator.clipboard.writeText(url);
+            toast(lang==="en"?"Client link copied!":"¡Link del cliente copiado!","success");
+          }}>🔗 {lang==="en"?"Share with client":"Compartir con cliente"}</Btn>
           {report.status==="borrador"&&(b.total||0)>0&&<Btn variant="p" sm onClick={()=>action("send")}>{T("sendToClient")}</Btn>}
           {report.status==="enviado"&&<><Btn variant="s" sm onClick={()=>action("authorize")}>{T("markAuthorized")}</Btn><Btn variant="d" sm onClick={()=>action("reject")}>{T("markRejected")}</Btn></>}
           {report.status==="autorizado"&&<Btn variant="purple" sm onClick={()=>action("advance")}>{T("registerAdvance")}</Btn>}
@@ -2618,6 +2657,328 @@ function ReportDetail({ report, clients, profiles, currentUser, lang = "es", onC
         )}
       </div>
     </Modal>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CLIENT PORTAL — Vista pública para clientes (sin login)
+// ══════════════════════════════════════════════════════════════════════════════
+function ClientPortal({ token }) {
+  const [report, setReport] = useState(null);
+  const [comments, setComments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const [commentName, setCommentName] = useState("");
+  const [commentMsg, setCommentMsg] = useState("");
+  const [sending, setSending] = useState(false);
+  const [acting, setActing] = useState(false);
+  const [actionDone, setActionDone] = useState(null);
+  const [showGuide, setShowGuide] = useState(false);
+
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function load() {
+    setLoading(true);
+    const r = await fetchReportByToken(token);
+    if (!r) { setNotFound(true); setLoading(false); return; }
+    setReport(r);
+    const c = await fetchClientComments(r.id);
+    setComments(c);
+    setLoading(false);
+  }
+
+  async function sendComment() {
+    if (!commentName.trim() || !commentMsg.trim()) return;
+    setSending(true);
+    await clientAddComment(token, commentName.trim(), commentMsg.trim());
+    setCommentMsg("");
+    const c = await fetchClientComments(report.id);
+    setComments(c);
+    setSending(false);
+  }
+
+  async function doAction(status, event, msg) {
+    setActing(true);
+    const { error } = await clientUpdateStatus(token, status, event);
+    if (!error) {
+      setActionDone(msg);
+      await load();
+    }
+    setActing(false);
+  }
+
+  if (loading) return (
+    <div style={{minHeight:"100vh",background:"#030712",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <Spinner/>
+    </div>
+  );
+
+  if (notFound) return (
+    <div style={{minHeight:"100vh",background:"#030712",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12,padding:24,textAlign:"center"}}>
+      <div style={{fontSize:48}}>🔍</div>
+      <div style={{color:"#f9fafb",fontWeight:800,fontSize:18}}>Reporte no encontrado</div>
+      <div style={{color:"#6b7280",fontSize:13}}>El link puede haber expirado o ser incorrecto.</div>
+    </div>
+  );
+
+  const b = report.budget || {};
+  const advance = (b.total||0) * ((b.advance_pct||50)/100);
+  const overall = report.schedule?.length ? Math.round(report.schedule.reduce((s,a)=>s+(a.progress||0),0)/report.schedule.length) : 0;
+  const client = report.client;
+
+  return (
+    <div style={{minHeight:"100vh",background:"#030712",fontFamily:"DM Sans, sans-serif",color:"#f9fafb",paddingBottom:40}}>
+      <style>{`*{box-sizing:border-box} input,textarea{font-family:'DM Sans',sans-serif}`}</style>
+
+      {/* HEADER */}
+      <div style={{background:"#070d1b",borderBottom:"1px solid #111827",padding:"20px 20px",textAlign:"center"}}>
+        <div style={{fontSize:28,marginBottom:4}}>🔧</div>
+        <div style={{fontWeight:800,fontSize:18}}>MantPro</div>
+        <div style={{color:"#6b7280",fontSize:12}}>Portal de Seguimiento</div>
+        <div style={{marginTop:10}}>
+          <Btn variant="g" sm onClick={() => setShowGuide(true)}>INSTRUCCIONES</Btn>
+        </div>
+      </div>
+
+      <div style={{maxWidth:680,margin:"0 auto",padding:"24px 16px"}}>
+
+        {/* REPORT INFO */}
+        <div style={{...S.card,padding:20,marginBottom:16}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10,flexWrap:"wrap",gap:8}}>
+            <div>
+              <div style={{color:"#4b5563",fontSize:11,fontFamily:"monospace",fontWeight:700}}>{report.folio}</div>
+              <div style={{fontWeight:800,fontSize:18,color:"#f9fafb",marginTop:2}}>{report.title}</div>
+            </div>
+            <Badge status={report.status} />
+          </div>
+          <div style={{display:"flex",gap:16,flexWrap:"wrap",fontSize:13,color:"#9ca3af"}}>
+            <span>🏢 {client?.name||"—"}</span>
+            <span>📅 {fmtDate(report.date)}</span>
+          </div>
+          {report.description && (
+            <p style={{color:"#9ca3af",fontSize:13,lineHeight:1.7,marginTop:14,marginBottom:0}}>{report.description}</p>
+          )}
+        </div>
+
+        {/* ACTION SUCCESS MESSAGE */}
+        {actionDone && (
+          <div style={{background:"#14532d",border:"1px solid #4ade8050",borderRadius:12,padding:"16px 20px",marginBottom:16,textAlign:"center"}}>
+            <div style={{fontSize:28,marginBottom:6}}>✅</div>
+            <div style={{color:"#4ade80",fontWeight:700,fontSize:14}}>{actionDone}</div>
+          </div>
+        )}
+
+        {/* ACTIONS — Authorize/Reject when status=enviado */}
+        {!actionDone && report.status === "enviado" && (
+          <div style={{...S.card,padding:20,marginBottom:16,borderColor:"#2563eb50"}}>
+            <div style={{fontWeight:800,fontSize:15,marginBottom:6}}>📋 Presupuesto pendiente de autorización</div>
+            <div style={{color:"#6b7280",fontSize:13,marginBottom:16}}>Revisa el presupuesto abajo y autoriza o rechaza el trabajo.</div>
+            <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+              <Btn variant="s" onClick={()=>doAction("autorizado","Presupuesto autorizado por cliente","¡Presupuesto autorizado! El técnico ha sido notificado.")} disabled={acting}>
+                {acting?<Spinner/>:"✓ Autorizar Presupuesto"}
+              </Btn>
+              <Btn variant="d" onClick={()=>doAction("rechazado","Presupuesto rechazado por cliente","Presupuesto rechazado. El técnico ha sido notificado.")} disabled={acting}>
+                {acting?<Spinner/>:"✕ Rechazar"}
+              </Btn>
+            </div>
+          </div>
+        )}
+
+        {/* ACTIONS — Visto bueno final when status=completado */}
+        {!actionDone && report.status === "completado" && (
+          <div style={{...S.card,padding:20,marginBottom:16,borderColor:"#4ade8050"}}>
+            <div style={{fontWeight:800,fontSize:15,marginBottom:6}}>🏁 Trabajos concluidos</div>
+            <div style={{color:"#6b7280",fontSize:13,marginBottom:16}}>Si todo está en orden, da tu visto bueno final.</div>
+            <Btn variant="s" onClick={()=>doAction("visto_bueno","Cliente dio visto bueno final ✓","¡Gracias! Visto bueno registrado. Proyecto cerrado.")} disabled={acting}>
+              {acting?<Spinner/>:"⭐ Dar Visto Bueno"}
+            </Btn>
+          </div>
+        )}
+
+        {/* BUDGET */}
+        {b.total > 0 && (
+          <div style={{...S.card,padding:20,marginBottom:16}}>
+            <div style={{fontWeight:800,fontSize:15,marginBottom:14}}>💰 Presupuesto</div>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,marginBottom:14}}>
+              <thead><tr style={{background:"#1f2937"}}>
+                {["Concepto","Cant.","Total"].map(h=><th key={h} style={{padding:"7px 10px",color:"#6b7280",textAlign:"left"}}>{h}</th>)}
+              </tr></thead>
+              <tbody>{(report.budgetItems||[]).map(it=>(
+                <tr key={it.id} style={{borderBottom:"1px solid #1f2937"}}>
+                  <td style={{padding:"7px 10px",color:"#f9fafb"}}>{it.concept}</td>
+                  <td style={{padding:"7px 10px",color:"#9ca3af"}}>{it.qty} {it.unit}</td>
+                  <td style={{padding:"7px 10px",color:"#4ade80",fontWeight:700}}>{fmtMXN(it.total)}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderTop:"1px solid #1f2937",fontSize:13}}>
+              <span style={{color:"#9ca3af"}}>Subtotal</span><span style={{color:"#9ca3af"}}>{fmtMXN(b.subtotal)}</span>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:13}}>
+              <span style={{color:"#9ca3af"}}>IVA {b.tax_rate??16}%</span><span style={{color:"#9ca3af"}}>{fmtMXN(b.iva)}</span>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"10px 0 0",borderTop:"1px solid #374151",fontSize:18,fontWeight:800}}>
+              <span>TOTAL</span><span style={{color:"#4ade80"}}>{fmtMXN(b.total)}</span>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:14}}>
+              <div style={{background:"#1f2937",borderRadius:8,padding:"10px 14px"}}>
+                <div style={{color:"#6b7280",fontSize:10,fontWeight:700}}>ANTICIPO ({b.advance_pct}%)</div>
+                <div style={{color:b.advance_paid?"#4ade80":"#a78bfa",fontWeight:700}}>{fmtMXN(advance)} {b.advance_paid?"✓":""}</div>
+              </div>
+              <div style={{background:"#1f2937",borderRadius:8,padding:"10px 14px"}}>
+                <div style={{color:"#6b7280",fontSize:10,fontWeight:700}}>PAGO FINAL</div>
+                <div style={{color:b.final_paid?"#4ade80":"#9ca3af",fontWeight:700}}>{fmtMXN((b.total||0)-advance)} {b.final_paid?"✓":""}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SCHEDULE */}
+        {report.schedule?.length > 0 && (
+          <div style={{...S.card,padding:20,marginBottom:16}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <div style={{fontWeight:800,fontSize:15}}>📅 Cronograma</div>
+              <div style={{color:"#2563eb",fontWeight:800,fontSize:18}}>{overall}%</div>
+            </div>
+            <ProgressBar value={overall}/>
+            <div style={{marginTop:14,display:"flex",flexDirection:"column",gap:10}}>
+              {report.schedule.map((a,i)=>(
+                <div key={a.id||i} style={{background:"#1f2937",borderRadius:8,padding:12}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                    <span style={{fontWeight:700,fontSize:13}}>{a.activity}</span>
+                    <Badge status={a.status} type="a" />
+                  </div>
+                  <div style={{fontSize:11,color:"#6b7280",marginBottom:6}}>📅 {fmtDate(a.start_date)} → {fmtDate(a.end_date)}</div>
+                  <ProgressBar value={a.progress||0} color={a.status==="completada"?"#4ade80":a.status==="en_curso"?"#fb923c":"#374151"} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* PHOTOS */}
+        {report.photos?.length > 0 && (
+          <div style={{...S.card,padding:20,marginBottom:16}}>
+            <div style={{fontWeight:800,fontSize:15,marginBottom:14}}>📸 Evidencia Fotográfica</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              {report.photos.map(p=><img key={p.id} src={p.url} alt="" style={{width:90,height:90,objectFit:"cover",borderRadius:8,border:"1px solid #374151"}} />)}
+            </div>
+          </div>
+        )}
+
+        {/* TIMELINE */}
+        {report.timeline?.length > 0 && (
+          <div style={{...S.card,padding:20,marginBottom:16}}>
+            <div style={{fontWeight:800,fontSize:15,marginBottom:14}}>🕐 Seguimiento</div>
+            <div style={{paddingLeft:20,position:"relative"}}>
+              {report.timeline.map((t,i)=>(
+                <div key={t.id||i} style={{position:"relative",marginBottom:14}}>
+                  <div style={{position:"absolute",left:-20,top:5,width:8,height:8,borderRadius:99,background:"#2563eb"}}/>
+                  {i<report.timeline.length-1 && <div style={{position:"absolute",left:-17,top:14,width:2,height:"calc(100% + 4px)",background:"#1f2937"}}/>}
+                  <div style={{fontSize:11,color:"#4b5563",marginBottom:2}}>{fmtDate(t.created_at?.slice(0,10))} · {t.user_name}</div>
+                  <div style={{fontSize:13,color:"#f9fafb"}}>{t.event}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* COMMENTS */}
+        <div style={{...S.card,padding:20,marginBottom:16}}>
+          <div style={{fontWeight:800,fontSize:15,marginBottom:14}}>💬 Comentarios</div>
+
+          {comments.length === 0 ? (
+            <div style={{color:"#4b5563",fontSize:13,textAlign:"center",padding:"12px 0"}}>Sin comentarios aún</div>
+          ) : (
+            <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
+              {comments.map(c => (
+                <div key={c.id} style={{background:"#1f2937",borderRadius:8,padding:12}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                    <span style={{fontWeight:700,fontSize:12,color:"#60a5fa"}}>{c.author_name}</span>
+                    <span style={{fontSize:10,color:"#4b5563"}}>{fmtDate(c.created_at?.slice(0,10))}</span>
+                  </div>
+                  <div style={{fontSize:13,color:"#f9fafb"}}>{c.message}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{borderTop:"1px solid #1f2937",paddingTop:14}}>
+            <input value={commentName} onChange={e=>setCommentName(e.target.value)} placeholder="Tu nombre" style={{...S.input,marginBottom:8}} />
+            <textarea value={commentMsg} onChange={e=>setCommentMsg(e.target.value)} placeholder="Escribe un comentario o pregunta…" style={{...S.input,resize:"vertical",minHeight:70,marginBottom:8}} />
+            <Btn variant="p" onClick={sendComment} disabled={sending || !commentName.trim() || !commentMsg.trim()}>
+              {sending?<Spinner/>:"📤 Enviar comentario"}
+            </Btn>
+          </div>
+          {showGuide && (
+  <Modal title="Guia rapida para el cliente" onClose={() => setShowGuide(false)}>
+    {/* AQUI VA TODO EL CONTENIDO DE LA GUIA */}
+    <div style={{color:"#f9fafb",fontSize:13,lineHeight:1.7}}>
+      <div style={{marginBottom:16,paddingBottom:12,borderBottom:"1px solid #1f2937"}}>
+        <div style={{fontWeight:800,fontSize:14,color:"#93c5fd",marginBottom:6}}>Introduccion</div>
+        <p style={{margin:0,color:"#9ca3af"}}>
+          Recibiste un link personal de tu tecnico para dar seguimiento a tu proyecto.
+          No necesitas crear cuenta ni descargar una app.
+        </p>
+      </div>
+
+      <div style={{marginBottom:16,paddingBottom:12,borderBottom:"1px solid #1f2937"}}>
+        <div style={{fontWeight:800,fontSize:14,color:"#93c5fd",marginBottom:8}}>Paso a paso</div>
+        <ol style={{margin:"0 0 0 18px",padding:0,color:"#d1d5db"}}>
+          <li style={{marginBottom:8}}>Abre el link que te enviaron por WhatsApp o correo.</li>
+          <li style={{marginBottom:8}}>Revisa la informacion del proyecto: titulo, estado, fecha y descripcion.</li>
+          <li style={{marginBottom:8}}>Revisa el presupuesto: partidas, cantidades, precios, total e impuestos.</li>
+          <li style={{marginBottom:8}}>Autoriza o rechaza el presupuesto cuando este listo para revision.</li>
+          <li style={{marginBottom:8}}>Da seguimiento al avance con cronograma, porcentajes y fotos.</li>
+          <li style={{marginBottom:8}}>Escribe comentarios si tienes dudas o necesitas aclaraciones.</li>
+          <li style={{marginBottom:0}}>Da tu visto bueno final al completar satisfactoriamente el trabajo.</li>
+        </ol>
+      </div>
+
+      <div style={{marginBottom:16,padding:12,border:"1px solid #1f2937",borderRadius:10,background:"#0b1220"}}>
+        <div style={{fontWeight:800,fontSize:13,color:"#93c5fd",marginBottom:6}}>Importante</div>
+        <p style={{margin:0,color:"#9ca3af"}}>
+          El link es personal para tu proyecto. Guardalo o agregalo a favoritos para consultarlo cuando quieras.
+          Si lo pierdes, pide a tu tecnico que lo envie de nuevo.
+        </p>
+      </div>
+
+      <div style={{marginBottom:4}}>
+        <div style={{fontWeight:800,fontSize:14,color:"#93c5fd",marginBottom:8}}>Preguntas frecuentes</div>
+
+        <div style={{marginBottom:10,paddingBottom:10,borderBottom:"1px solid #1f2937"}}>
+          <div style={{fontWeight:700,color:"#f9fafb",marginBottom:4}}>Necesito crear una cuenta?</div>
+          <div style={{color:"#9ca3af"}}>No. El link te da acceso directo sin registro.</div>
+        </div>
+
+        <div style={{marginBottom:10,paddingBottom:10,borderBottom:"1px solid #1f2937"}}>
+          <div style={{fontWeight:700,color:"#f9fafb",marginBottom:4}}>Puedo verlo desde mi celular?</div>
+          <div style={{color:"#9ca3af"}}>Si, funciona en cualquier navegador movil o de computadora.</div>
+        </div>
+
+        <div style={{marginBottom:10,paddingBottom:10,borderBottom:"1px solid #1f2937"}}>
+          <div style={{fontWeight:700,color:"#f9fafb",marginBottom:4}}>Que pasa si rechazo el presupuesto?</div>
+          <div style={{color:"#9ca3af"}}>El tecnico recibe la notificacion y puede ajustar la propuesta.</div>
+        </div>
+
+        <div>
+          <div style={{fontWeight:700,color:"#f9fafb",marginBottom:4}}>Puedo cambiar mi decision despues de autorizar?</div>
+          <div style={{color:"#9ca3af"}}>Contacta directamente a tu tecnico para cualquier ajuste posterior.</div>
+        </div>
+      </div>
+    </div>
+
+    <div style={{display:"flex",justifyContent:"flex-end",marginTop:16,paddingTop:12,borderTop:"1px solid #1f2937"}}>
+      <Btn variant="p" onClick={() => setShowGuide(false)}>Cerrar</Btn>
+    </div>
+  </Modal>
+)}
+        </div>
+        <div style={{textAlign:"center",color:"#374151",fontSize:11,marginTop:24}}>
+          © {new Date().getFullYear()} MantPro by Jaime M. Estrada B. · DevSoft Heron
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -3150,6 +3511,7 @@ function HelpModal({ currentUser, lang = "es", onClose }) {
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
+
   const [profiles, setProfiles]       = useState([]);
   const [reports, setReports]         = useState([]);
   const [clients, setClients]         = useState([]);
@@ -3169,6 +3531,13 @@ export default function App() {
     setToasts(t=>[...t,{id,msg,type}]);
     setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),3200);
   },[]);
+
+  // ── CLIENT PORTAL ROUTING ──────────────────────────────────────────────────
+  // Detect /cliente/{token} URL and render ClientPortal without auth
+  const clientTokenMatch = typeof window !== "undefined" ? window.location.pathname.match(/\/cliente\/([0-9a-fA-F-]{36})/) : null;
+  if (clientTokenMatch) {
+    return <ClientPortal token={clientTokenMatch[1]} />;
+  }
 
   // ── LOAD DATA ───────────────────────────────────────────────────────────────
   async function loadAll(user) {
