@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "857924388401",
+    "project_id": "mantpro-7e524",
+    "storage_bucket": "mantpro-7e524.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:857924388401:android:94bd9867073854128db710",
+        "android_client_info": {
+          "package_name": "com.jmeb.mantpro"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDUjDXVm7L9RS0vzVF9DxenZdJKZjqTsYc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
