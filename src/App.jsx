@@ -2459,7 +2459,8 @@ function ReportDetail({ report, clients, profiles, currentUser, lang = "es", onC
           <Badge status={report.status} />
           <div style={{flex:1}}/>
           <Btn variant="purple" sm onClick={()=>{
-            const url = `${window.location.origin}/cliente/${report.client_token}`;
+            const PROD_URL = "https://mantenimiento-app-mu.vercel.app";
+            const url = `${Capacitor.isNativePlatform() ? PROD_URL : window.location.origin}/cliente/${report.client_token}`;
             navigator.clipboard.writeText(url);
             toast(lang==="en"?"Client link copied!":"¡Link del cliente copiado!","success");
           }}>🔗 {lang==="en"?"Share with client":"Compartir con cliente"}</Btn>
