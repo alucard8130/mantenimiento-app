@@ -5,7 +5,7 @@ import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { Capacitor } from "@capacitor/core";
 import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
-
+import { PushNotifications } from "@capacitor/push-notifications";
 
 const isNative = () => { try { return Capacitor.isNativePlatform(); } catch(e) { return false; } };
 
@@ -929,6 +929,57 @@ async function updateLaborCost(id, updates) {
 async function deleteLaborCost(id) {
   const { error } = await supabase.from("labor_costs").delete().eq("id", id);
   return error;
+}
+
+// ── PUSH NOTIFICATIONS — Device token registration ────────────────────────────
+async function saveDeviceToken(userId, token, platform) {
+  const { error } = await supabase.from("device_tokens").upsert(
+    { user_id: userId, token, platform },
+    { onConflict: "token" }
+  );
+  return error;
+}
+async function removeDeviceToken(token) {
+  const { error } = await supabase.from("device_tokens").delete().eq("token", token);
+  return error;
+}
+
+async function setupPushNotifications(userId) {
+  if (!Capacitor.isNativePlatform()) return;
+
+  try {
+    let permStatus = await PushNotifications.checkPermissions();
+    if (permStatus.receive === "prompt") {
+      permStatus = await PushNotifications.requestPermissions();
+    }
+    if (permStatus.receive !== "granted") {
+      console.log("Push notification permission denied");
+      return;
+    }
+
+    await PushNotifications.register();
+
+    PushNotifications.addListener("registration", async (token) => {
+      console.log("Push registration success, token:", token.value);
+      const platform = Capacitor.getPlatform(); // 'android' o 'ios'
+      await saveDeviceToken(userId, token.value, platform);
+    });
+
+    PushNotifications.addListener("registrationError", (err) => {
+      console.error("Push registration error:", err);
+    });
+
+    PushNotifications.addListener("pushNotificationReceived", (notification) => {
+      console.log("Push received (foreground):", notification);
+    });
+
+    PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
+      console.log("Push action performed:", action);
+      // Aquí se podría navegar a un reporte específico si la notificación trae report_id
+    });
+  } catch (e) {
+    console.error("setupPushNotifications error:", e);
+  }
 }
 
 // ── CLIENT PORTAL (public access via token) ──────────────────────────────────
@@ -3584,6 +3635,9 @@ export default function App() {
     }
     setCurrentUser(freshProfile);
     await loadAll(freshProfile);
+    if (freshProfile.id !== SUPERUSER.id) {
+      setupPushNotifications(freshProfile.id);
+    }
   }
 
   // Restore session when returning from Stripe (back button or redirect)
@@ -3600,6 +3654,7 @@ export default function App() {
         if (profile) {
           setCurrentUser(profile);
           await loadAll(profile);
+          setupPushNotifications(profile.id);
           if (payment === "success") {
             // Refresh profile to get updated subscription status
             setTimeout(async () => {
