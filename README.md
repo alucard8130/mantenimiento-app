@@ -70,6 +70,7 @@
 - Tiempo real con Supabase Realtime
 - Alertas por cada evento del flujo
 - Badge de no leídas en el menú
+- Push Notifications
 
 ### 👥 Mi Equipo (Empresarial)
 - Vincular / desvincular técnicos
