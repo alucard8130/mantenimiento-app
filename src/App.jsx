@@ -939,10 +939,10 @@ async function saveDeviceToken(userId, token, platform) {
   );
   return error;
 }
-async function removeDeviceToken(token) {
-  const { error } = await supabase.from("device_tokens").delete().eq("token", token);
-  return error;
-}
+// async function removeDeviceToken(token) {
+//   const { error } = await supabase.from("device_tokens").delete().eq("token", token);
+//   return error;
+// }
 
 async function setupPushNotifications(userId) {
   if (!Capacitor.isNativePlatform()) return;
